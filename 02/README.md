@@ -1,43 +1,167 @@
-# Atelier 02 - Exploitation de failles web (.NET)
+# Atelier 02 - SQLi, XSS, CSRF, SSRF
 
-Ce dossier contient une solution de reference pour l'atelier 02:
-SQL injection, XSS, CSRF et SSRF.
+## But
 
-## Structure
+Reproduire quatre classes de failles web, puis verifier les contre-mesures implementees.
 
-- `AppSecWorkshop02/`: API ASP.NET Core (net9.0).
-- Endpoints `vuln/*`: version vulnerable pedagogique.
-- Endpoints `secure/*`: version corrigee.
-
-## Lancer l'atelier
+## Demarrage
 
 ```powershell
 cd .\02\AppSecWorkshop02
 dotnet run
 ```
 
-## Parcours formateur (90-120 min)
+## Mode operatoire
 
-1. SQLi: exploiter `/vuln/sql/users` avec `username=' OR 1=1 --`.
-2. SQLi corrige: tester `/secure/sql/users` avec le meme payload.
-3. XSS: injecter `<script>alert('xss')</script>` sur `/vuln/xss`.
-4. XSS corrige: comparer avec `/secure/xss`.
-5. CSRF: creer une session via `/auth/login`, puis appeler `/vuln/csrf/transfer`.
-6. CSRF corrige: appeler `/secure/csrf/transfer` sans puis avec `X-CSRF-Token`.
-7. SSRF: tester `/vuln/ssrf/fetch?url=http://example.com`.
-8. SSRF corrige: verifier le blocage de `/secure/ssrf/fetch?url=http://localhost:5142`.
+### Etape 1 - SQL Injection
 
-## Points de debrief
+Action:
+- Envoyer un payload SQL dans `username`.
 
-- SQLi: requetes concatenees vs parametrees.
-- XSS: sortie HTML encodee, jamais brute.
-- CSRF: cookie de session insuffisant sans token anti-CSRF.
-- SSRF: validation stricte URL + allowlist + blocage IP internes.
+Requete vulnerable:
+```http
+GET /vuln/sql/users?username=' OR 1=1 -- HTTP/1.1
+Host: localhost
+```
 
-## Fichiers cles
+Requete corrigee:
+```http
+GET /secure/sql/users?username=' OR 1=1 -- HTTP/1.1
+Host: localhost
+```
 
-- `AppSecWorkshop02/Program.cs`
-- `AppSecWorkshop02/Data/DbInitializer.cs`
-- `AppSecWorkshop02/Security/SessionStore.cs`
-- `AppSecWorkshop02/Security/SsrfGuard.cs`
-- `AppSecWorkshop02/AppSecWorkshop02.http`
+Resultat attendu:
+- `vuln`: plusieurs utilisateurs remontent.
+- `secure`: pas d'escalade, resultat filtre.
+
+Point a observer:
+- difference entre concatener SQL et parametrer SQL.
+
+### Etape 2 - XSS
+
+Requete vulnerable:
+```http
+GET /vuln/xss?input=<script>alert('xss')</script> HTTP/1.1
+Host: localhost
+```
+
+Requete corrigee:
+```http
+GET /secure/xss?input=<script>alert('xss')</script> HTTP/1.1
+Host: localhost
+```
+
+Resultat attendu:
+- `vuln`: script injecte dans la reponse HTML.
+- `secure`: payload encode (`&lt;script&gt;`).
+
+Point a observer:
+- encoder la sortie selon le contexte HTML.
+
+### Etape 3 - CSRF
+
+Action 1: creer une session.
+```http
+POST /auth/login HTTP/1.1
+Host: localhost
+Content-Type: application/json
+
+{"username":"alice"}
+```
+
+Recuperer:
+- cookie `session-id`
+- valeur `csrfToken` dans la reponse.
+
+Action 2: appel sans token CSRF.
+```http
+POST /vuln/csrf/transfer HTTP/1.1
+Host: localhost
+Content-Type: application/json
+Cookie: session-id=...
+
+{"to":"mallory","amount":100}
+```
+
+Action 3: appel securise sans puis avec token.
+```http
+POST /secure/csrf/transfer HTTP/1.1
+Host: localhost
+Content-Type: application/json
+Cookie: session-id=...
+
+{"to":"mallory","amount":100}
+```
+
+```http
+POST /secure/csrf/transfer HTTP/1.1
+Host: localhost
+Content-Type: application/json
+Cookie: session-id=...
+X-CSRF-Token: <csrfToken>
+
+{"to":"mallory","amount":100}
+```
+
+Resultat attendu:
+- sans token: `403`
+- avec token: `200`
+
+### Etape 4 - SSRF
+
+Requete vulnerable:
+```http
+GET /vuln/ssrf/fetch?url=http://example.com HTTP/1.1
+Host: localhost
+```
+
+Requete corrigee bloquee:
+```http
+GET /secure/ssrf/fetch?url=http://localhost:5142 HTTP/1.1
+Host: localhost
+```
+
+Requete corrigee autorisee:
+```http
+GET /secure/ssrf/fetch?url=https://jsonplaceholder.typicode.com/todos/1 HTTP/1.1
+Host: localhost
+```
+
+Resultat attendu:
+- blocage des cibles non autorisees.
+- acceptation des hosts en allowlist.
+
+## Reexecution rapide
+
+- Utiliser `AppSecWorkshop02.http`.
+- Rejouer chaque couple `vuln` / `secure`.
+
+## Script PowerShell des appels Web Service
+
+```powershell
+cd .\02
+.\scripts\calls.ps1
+```
+
+## Diagramme Mermaid
+
+```mermaid
+graph TD
+  N1[Request] --> N2{Path family}
+  N2 --> N3[SQL vulnerable]
+  N2 --> N4[SQL secure]
+  N2 --> N5[XSS vulnerable]
+  N2 --> N6[XSS secure]
+  N2 --> N7[CSRF vulnerable]
+  N2 --> N8[CSRF secure]
+  N2 --> N9[SSRF vulnerable]
+  N2 --> N10[SSRF secure]
+  N3 --> N11[String concatenation]
+  N4 --> N12[Parameterized query]
+  N5 --> N13[Raw html]
+  N6 --> N14[Encoded output]
+  N7 --> N15[No token check]
+  N8 --> N16[Token validated]
+  N9 --> N17[Any url allowed]
+  N10 --> N18[Allowlist and block internal]
+```

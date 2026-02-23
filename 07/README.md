@@ -1,34 +1,121 @@
-# Atelier 07 - Limiter l'exposition applicative
+# Atelier 07 - Limiter la surface d'exposition
 
-Objectif: mettre en place des controles defensifs "runtime" pour reduire
-la surface d'attaque d'une API exposee.
+## But
 
-## Structure
+Mettre en place des defenses runtime: controle admin, filtrage, validation upload, limitation de debit.
 
-- `Atelier07.slnx`
-- `ExposureDefenseLab/`: API demo (`vuln/*` et `secure/*`)
-- `ExposureDefenseLab.Tests/`: tests d'integration de controles defensifs
-- `scripts/run-defense-checks.ps1`: build, tests et scan de patterns dangereux
-- `pipeline/exposure-defense-ci.yml`: pipeline CI exemple
-
-## Lancer
+## Demarrage
 
 ```powershell
 cd .\07
 dotnet build .\Atelier07.slnx
 dotnet test .\Atelier07.slnx
+dotnet run --project .\ExposureDefenseLab\ExposureDefenseLab.csproj
 ```
 
-## Scenarios ateliers (90 min)
+## Mode operatoire
 
-1. Endpoint admin expose:
-   - `/vuln/admin/ping` (ouvert)
-   - `/secure/admin/ping` (cle API requise)
-2. Filtrage WAF-like:
-   - `/vuln/search?q=<script>alert(1)</script>`
-   - `/secure/search?q=<script>alert(1)</script>` (blocage)
-3. Validation metadonnees upload:
-   - `/vuln/upload/meta` (accepte tout)
-   - `/secure/upload/meta` (type, taille, nom de fichier controles)
-4. Limitation de debit:
-   - exceder 5 requetes / 10s depuis le meme client pour observer `429`
+### Etape 1 - Endpoint admin
+
+Requetes:
+```http
+GET /vuln/admin/ping HTTP/1.1
+Host: localhost
+```
+
+```http
+GET /secure/admin/ping HTTP/1.1
+Host: localhost
+```
+
+```http
+GET /secure/admin/ping HTTP/1.1
+Host: localhost
+X-Admin-Key: workshop-admin-key
+```
+
+Resultat attendu:
+- `vuln`: acces direct.
+- `secure`: `401` sans cle, `200` avec cle.
+
+### Etape 2 - Filtrage type WAF
+
+Requetes:
+```http
+GET /vuln/search?q=<script>alert(1)</script> HTTP/1.1
+Host: localhost
+```
+
+```http
+GET /secure/search?q=<script>alert(1)</script> HTTP/1.1
+Host: localhost
+```
+
+Resultat attendu:
+- `secure`: `403` sur pattern malveillant.
+
+### Etape 3 - Validation upload
+
+Requete vulnerable:
+```http
+POST /vuln/upload/meta HTTP/1.1
+Host: localhost
+Content-Type: application/json
+
+{"fileName":"payload.exe","contentType":"application/x-msdownload","size":1000}
+```
+
+Requete securisee rejet:
+```http
+POST /secure/upload/meta HTTP/1.1
+Host: localhost
+Content-Type: application/json
+
+{"fileName":"payload.exe","contentType":"application/x-msdownload","size":1000}
+```
+
+Requete securisee valide:
+```http
+POST /secure/upload/meta HTTP/1.1
+Host: localhost
+Content-Type: application/json
+
+{"fileName":"document.pdf","contentType":"application/pdf","size":34567}
+```
+
+### Etape 4 - Rate limiting
+
+Action:
+- envoyer plus de 5 requetes en moins de 10 secondes vers une route.
+
+Resultat attendu:
+- reponses `429 Too Many Requests` au-dela du quota.
+
+## Automatisation
+
+```powershell
+.\scripts\run-defense-checks.ps1
+```
+
+## Script PowerShell des appels Web Service
+
+```powershell
+cd .\07
+.\scripts\calls.ps1
+```
+
+## Diagramme Mermaid
+
+```mermaid
+graph TD
+  N1[Request] --> N2[Rate limiter]
+  N2 --> N3[Security filter]
+  N3 --> N4{Malicious pattern}
+  N4 -- Yes --> N5[Blocked 403]
+  N4 -- No --> N6{Admin route}
+  N6 -- Yes --> N7{Api key valid}
+  N7 -- No --> N8[Unauthorized 401]
+  N7 -- Yes --> N9[Allowed 200]
+  N6 -- No --> N10[Business endpoint]
+  N10 --> N11[Upload validation]
+```

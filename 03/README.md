@@ -1,47 +1,120 @@
-# Atelier 03 - Attaques avancees et durcissement
+# Atelier 03 - Session theft, deserialisation, IDOR
 
-Ce dossier contient la solution de reference pour l'atelier 03:
-vol de session, deserialisation non sure et IDOR.
+## But
 
-## Structure
+Analyser des attaques avancees et verifier les controles applicatifs associes.
 
-- `AppSecWorkshop03/`: API ASP.NET Core (net9.0).
-- Endpoints `vuln/*`: version vulnerable pedagogique.
-- Endpoints `secure/*`: version corrigee.
-
-## Lancer l'atelier
+## Demarrage
 
 ```powershell
 cd .\03\AppSecWorkshop03
 dotnet run
 ```
 
-## Parcours formateur (90-120 min)
+## Mode operatoire
 
-1. Session theft:
-   - appeler `/vuln/session/login`
-   - reutiliser un token previsible sur `/vuln/session/profile`
-   - comparer avec `/secure/session/login` + `/secure/session/profile`
-2. Deserialisation:
-   - envoyer un payload avec `$type` sur `/vuln/deserialization/execute`
-   - constater l'effet de bord (creation de fichier)
-   - comparer avec `/secure/deserialization/execute`
-3. IDOR:
-   - `alice` lit la commande `1002` via `/vuln/idor/orders/1002`
-   - verifier le refus sur `/secure/idor/orders/1002?username=alice`
-   - verifier l'acces `admin` avec `bob`
+### Etape 1 - Vol de session
 
-## Points de debrief
+Action 1: obtenir un token vulnerable.
+```http
+POST /vuln/session/login HTTP/1.1
+Host: localhost
+Content-Type: application/json
 
-- Session: tokens aleatoires, expiration, liaison du contexte client.
-- Deserialisation: ne jamais deserialiser un type arbitraire depuis une entree non fiable.
-- IDOR: verification d'autorisation objet par objet.
+{"username":"alice"}
+```
 
-## Fichiers cles
+Action 2: reutiliser un token previsible.
+```http
+GET /vuln/session/profile?token=YWxpY2U6d29ya3Nob3Atc2Vzc2lvbg== HTTP/1.1
+Host: localhost
+```
 
-- `AppSecWorkshop03/Program.cs`
-- `AppSecWorkshop03/Security/VulnerableSessionService.cs`
-- `AppSecWorkshop03/Security/SecureSessionService.cs`
-- `AppSecWorkshop03/Serialization/WorkshopActions.cs`
-- `AppSecWorkshop03/Data/OrderRepository.cs`
-- `AppSecWorkshop03/AppSecWorkshop03.http`
+Action 3: comparer avec le flux securise.
+- `POST /secure/session/login`
+- `GET /secure/session/profile` avec `X-Session-Token`
+
+Point a observer:
+- token fort + expiration + contexte client.
+
+### Etape 2 - Deserialisation non sure
+
+Requete vulnerable:
+```http
+POST /vuln/deserialization/execute HTTP/1.1
+Host: localhost
+Content-Type: application/json
+
+{
+  "$type":"AppSecWorkshop03.Serialization.DangerousAction, AppSecWorkshop03",
+  "FileName":"owned-by-deserialization.txt",
+  "Content":"Payload deserialize"
+}
+```
+
+Requete corrigee:
+```http
+POST /secure/deserialization/execute HTTP/1.1
+Host: localhost
+Content-Type: application/json
+
+{"action":"echo","message":"safe payload"}
+```
+
+Resultat attendu:
+- `vuln`: effet de bord (fichier cree).
+- `secure`: seules actions explicitement autorisees.
+
+### Etape 3 - IDOR
+
+Requete vulnerable:
+```http
+GET /vuln/idor/orders/1002?username=alice HTTP/1.1
+Host: localhost
+```
+
+Requete corrigee:
+```http
+GET /secure/idor/orders/1002?username=alice HTTP/1.1
+Host: localhost
+```
+
+Requete admin:
+```http
+GET /secure/idor/orders/1002?username=bob HTTP/1.1
+Host: localhost
+```
+
+Resultat attendu:
+- `vuln`: lecture non autorisee possible.
+- `secure`: refus pour non-proprietaire, acces admin controle.
+
+## Reexecution rapide
+
+- Utiliser `AppSecWorkshop03.http`.
+
+## Script PowerShell des appels Web Service
+
+```powershell
+cd .\03
+.\scripts\calls.ps1
+```
+
+## Diagramme Mermaid
+
+```mermaid
+graph TD
+  N1[User action] --> N2{Scenario}
+  N2 --> N3[Session theft]
+  N2 --> N4[Insecure deserialization]
+  N2 --> N5[Object access issue]
+  N3 --> N6[Vulnerable session path]
+  N3 --> N7[Secure session path]
+  N4 --> N8[Vulnerable deserialization path]
+  N4 --> N9[Secure deserialization path]
+  N5 --> N10[Vulnerable object path]
+  N5 --> N11[Secure object path]
+  N7 --> N12[Strong token and expiry]
+  N9 --> N13[Strict input contract]
+  N11 --> N14[Object authorization]
+```
