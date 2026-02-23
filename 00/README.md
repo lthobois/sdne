@@ -1,7 +1,5 @@
 # Atelier 00 - Rappels securite applicative .NET
 
-Cet atelier conserve uniquement les demonstrations avec comportement observable dans le code (pas de endpoints purement descriptifs).
-
 ## Pre-requis
 
 - Etre positionne a la racine du depot `sdne`
@@ -79,7 +77,8 @@ Code source a observer:
 - `00/samples/StackOverflowDemo/Program.cs:11`
 
 ```powershell
-if (Test-Path .\00\samples\StackOverflowDemo) { Set-Location .\00\samples\StackOverflowDemo } elseif (Test-Path .\samples\StackOverflowDemo) { Set-Location .\samples\StackOverflowDemo }
+if (Test-Path .\00) { Set-Location .\00 }
+Test-Path .\samples\StackOverflowDemo
 dotnet run
 ```
 
@@ -224,12 +223,24 @@ Code source a observer:
 - `00/SecurityFoundationsLab/Program.cs:143`
 
 ```powershell
-Get-Process -Name SecurityFoundationsLab
-Get-ProcessMitigation -Name SecurityFoundationsLab
+# 1) Verifier le processus cible
+Get-Process -Name SecurityFoundationsLab | Select-Object Id,ProcessName,Path
+
+# 2) Mitigations systeme (toujours disponibles)
+Get-ProcessMitigation -System
+
+# 3) Tentative par image (peut etre vide si aucune policy explicite n'est configuree)
+Get-ProcessMitigation -Name SecurityFoundationsLab.exe
+
+# 4) Verification de policy IFEO explicite pour cette image
+Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\SecurityFoundationsLab.exe" -ErrorAction SilentlyContinue
 ```
 
 Resultat attendu:
-- etat des mitigations (DEP/ASLR/CFG selon OS et configuration)
+- `Get-Process` retourne le process et son chemin.
+- `Get-ProcessMitigation -System` retourne les mitigations globales.
+- `Get-ProcessMitigation -Name ...` peut retourner vide si aucune policy explicite n'est definie pour l'image.
+- Si la cle IFEO est absente, cela confirme l'absence de policy par-image (comportement normal).
 
 ## Verifications
 
@@ -240,7 +251,7 @@ Resultat attendu:
 
 - Si `Connection refused`, verifier que l'API tourne sur `http://localhost:5100`.
 - Si `safe-demo.dll` est introuvable, lancer l'API une fois puis relancer l'etape 8.
-- Si `Get-ProcessMitigation` ne retourne rien, verifier le nom via `Get-Process`.
+- Si `Get-ProcessMitigation -Name ...` ne retourne rien: verifier d'abord `Get-ProcessMitigation -System`, puis verifier la cle IFEO (etape 11). Une sortie vide sur `-Name` peut etre normale.
 
 ## Nettoyage / Reset
 
