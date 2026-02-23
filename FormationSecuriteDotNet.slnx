@@ -1,2 +1,5 @@
 <Solution>
+  <Folder Name="/00/">
+    <Project Path="00/SecurityFoundationsLab/SecurityFoundationsLab.csproj" />
+  </Folder>
 </Solution>

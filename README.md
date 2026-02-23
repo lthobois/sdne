@@ -1,6 +1,6 @@
 # Formation Securite .NET - Guide participant
 
-Ce depot contient 10 ateliers pratiques. Chaque atelier est autonome, versionne dans son dossier (`01` a `10`) et fournit un mode operatoire pas a pas.
+Ce depot contient 11 ateliers pratiques. Chaque atelier est autonome, versionne dans son dossier (`00` a `10`) et fournit un mode operatoire pas a pas.
 
 ## Pre-requis generaux
 
@@ -27,6 +27,7 @@ Resultat attendu:
 
 | Atelier | Dossier | Theme principal | Modules couverts |
 |---|---|---|---|
+| 00 | `00` | Rappels securite applicative | Stack/Heap, SAST/DAST, hijacking ressources, protections runtime |
 | 01 | `01` | Authentification HTTP Basic | AuthN, AuthZ role-based |
 | 02 | `02` | Vulns Web OWASP | SQLi, XSS, CSRF, SSRF |
 | 03 | `03` | Attaques avancees | Session theft, deserialisation, IDOR |
