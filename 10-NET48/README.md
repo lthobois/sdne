@@ -11,6 +11,26 @@ Cette variante est executable en .NET Framework 4.8 avec un hote HTTP de compati
 - PowerShell 5.1+
 - (Optionnel) Docker Desktop pour scenario compose/nginx
 
+
+## Execution .NET Framework 4.8 avec dotnet
+
+Oui, ces ateliers NET48 sont lances via la CLI `dotnet` car les projets sont au format SDK (`TargetFramework=net48`).
+
+Pre-requis complementaires:
+- .NET SDK installe (commande `dotnet` disponible)
+- .NET Framework 4.8 Developer Pack installe
+
+Commandes type:
+```powershell
+dotnet restore .\Atelier10.slnx
+dotnet build .\Atelier10.slnx
+dotnet run --project .\<Projet>\<Projet>.csproj --urls=http://localhost:5110
+```
+
+Si `HttpListener` retourne `Access denied` (Windows URL ACL), executer une fois en administrateur:
+```powershell
+netsh http add urlacl url=http://localhost:5110/ user=%USERNAME%
+```
 ## Etape 1 - Initialiser et lancer
 
 Objectif: demarrer l'API perimetrique locale.
@@ -173,6 +193,8 @@ flowchart TD
 ## Tests NET48
 
 Les tests fournis sur cette piste sont des smoke tests de validation d'execution (build + runner).
+
+
 
 
 

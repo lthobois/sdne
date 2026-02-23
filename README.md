@@ -74,8 +74,6 @@ dotnet build .\FormationSecuriteDotNet48.sln
 dotnet test .\FormationSecuriteDotNet48.sln
 ```
 
-Note: les ateliers `*-NET48` sont provisionnes au format cible `net48`, mais le code applicatif actuel base sur les Minimal APIs modernes necessite un portage complementaire pour etre 100% compilable/executable en .NET Framework 4.8.
-
 ## Depannage global
 
 - Erreur de restauration NuGet: verifier proxy/reseau puis relancer `dotnet restore`.

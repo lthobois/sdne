@@ -26,13 +26,13 @@ internal static class Program
         {
             Uri uri;
             if (!Uri.TryCreate(raw.Trim(), UriKind.Absolute, out uri)) continue;
-            var host = (uri.Host == "localhost" || uri.Host == "127.0.0.1") ? "+" : uri.Host;
+            var host = uri.Host;
             var path = uri.AbsolutePath;
             if (string.IsNullOrWhiteSpace(path)) path = "/";
             if (!path.EndsWith("/")) path += "/";
             listener.Prefixes.Add(uri.Scheme + "://" + host + ":" + uri.Port + path);
         }
-        if (listener.Prefixes.Count == 0) listener.Prefixes.Add("http://+:5100/");
+        if (listener.Prefixes.Count == 0) listener.Prefixes.Add("http://localhost:5100/");
 
         listener.Start();
         Console.WriteLine("BasicAuthWorkshop NET48 compat host listening on: " + string.Join(", ", listener.Prefixes.Cast<string>()));
@@ -221,3 +221,4 @@ internal static class Program
         }
     }
 }
+

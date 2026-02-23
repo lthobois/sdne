@@ -10,6 +10,26 @@ Cette variante est executable en .NET Framework 4.8 avec un hote HTTP de compati
 - .NET Framework 4.8 (Developer Pack) installe
 - PowerShell 5.1+
 
+
+## Execution .NET Framework 4.8 avec dotnet
+
+Oui, ces ateliers NET48 sont lances via la CLI `dotnet` car les projets sont au format SDK (`TargetFramework=net48`).
+
+Pre-requis complementaires:
+- .NET SDK installe (commande `dotnet` disponible)
+- .NET Framework 4.8 Developer Pack installe
+
+Commandes type:
+```powershell
+dotnet restore .\Atelier02.slnx
+dotnet build .\Atelier02.slnx
+dotnet run --project .\<Projet>\<Projet>.csproj --urls=http://localhost:5102
+```
+
+Si `HttpListener` retourne `Access denied` (Windows URL ACL), executer une fois en administrateur:
+```powershell
+netsh http add urlacl url=http://localhost:5102/ user=%USERNAME%
+```
 ## Etape 1 - Initialiser et lancer l'API
 
 Objectif: restaurer, compiler et lancer l'atelier.
@@ -162,6 +182,8 @@ flowchart TD
     B --> E[CSRF checks]
     B --> F[SSRF checks]
 ```
+
+
 
 
 
