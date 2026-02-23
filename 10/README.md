@@ -4,7 +4,7 @@
 
 - Etre positionne a la racine du depot `sdne`
 - .NET SDK 9.x installe
-- PowerShell 7+
+- PowerShell 5.1+
 - (Optionnel) Docker Desktop pour scenario compose/nginx
 
 ## Etape 1 - Initialiser et lancer
@@ -12,7 +12,7 @@
 Objectif: demarrer l'API perimetrique locale.
 
 ```powershell
-Set-Location .\10
+if\ \(Test-Path\ \.\10\)\ \{\ Set-Location\ \.\10\ }
 dotnet restore .\Atelier10.slnx
 $BaseUrl = 'http://localhost:5110'
 dotnet run --project .\PerimeterValidationLab\PerimeterValidationLab.csproj --urls=$BaseUrl
@@ -73,7 +73,7 @@ Resultat attendu: JSON de diagnostic avec `resolved.Valid` et details de resolut
 Objectif: executer le scenario proxy + application.
 
 ```powershell
-Set-Location .\10\infra
+if (Test-Path .\10\infra) { if\ \(Test-Path\ \.\10\)\ \{\ Set-Location\ \.\10\ }\infra } elseif (Test-Path .\infra) { if (Test-Path .\infra) { Set-Location .\infra } }
 docker compose up -d
 ```
 
@@ -90,7 +90,7 @@ Resultat attendu: services `Up`.
 Objectif: valider automatiquement les regles perimetriques.
 
 ```powershell
-Set-Location .\10
+if\ \(Test-Path\ \.\10\)\ \{\ Set-Location\ \.\10\ }
 dotnet test .\PerimeterValidationLab.Tests\PerimeterValidationLab.Tests.csproj
 ```
 
@@ -113,8 +113,8 @@ Resultat attendu: tests `Passed`.
 # Dans le terminal API
 # Ctrl+C
 
-Set-Location .\10
-Set-Location .\infra
+if\ \(Test-Path\ \.\10\)\ \{\ Set-Location\ \.\10\ }
+if (Test-Path .\infra) { Set-Location .\infra }
 docker compose down
 
 Set-Location ..
@@ -130,3 +130,5 @@ flowchart TD
     C --> D[Tenant validation]
     D --> E[Secure endpoint response]
 ```
+
+

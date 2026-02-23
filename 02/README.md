@@ -4,14 +4,14 @@
 
 - Etre positionne a la racine du depot `sdne`
 - .NET SDK 9.x installe
-- PowerShell 7+
+- PowerShell 5.1+
 
 ## Etape 1 - Initialiser et lancer l'API
 
 Objectif: restaurer, compiler et lancer l'atelier.
 
 ```powershell
-Set-Location .\02
+if\ \(Test-Path\ \.\02\)\ \{\ Set-Location\ \.\02\ }
 dotnet restore .\AppSecWorkshop02\AppSecWorkshop02.csproj
 $BaseUrl = 'http://localhost:5102'
 dotnet run --project .\AppSecWorkshop02\AppSecWorkshop02.csproj --urls=$BaseUrl
@@ -120,7 +120,7 @@ Resultat attendu: URL sensible/localhost rejetee sur endpoint `secure`.
 # Dans le terminal API
 # Ctrl+C
 
-Set-Location .\02
+if\ \(Test-Path\ \.\02\)\ \{\ Set-Location\ \.\02\ }
 Remove-Item .\workshop.db -ErrorAction SilentlyContinue
 dotnet clean .\AppSecWorkshop02\AppSecWorkshop02.csproj
 ```
@@ -135,3 +135,5 @@ flowchart TD
     B --> E[CSRF checks]
     B --> F[SSRF checks]
 ```
+
+

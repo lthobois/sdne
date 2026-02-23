@@ -4,14 +4,14 @@
 
 - Etre positionne a la racine du depot `sdne`
 - .NET SDK 9.x installe
-- PowerShell 7+
+- PowerShell 5.1+
 
 ## Etape 1 - Initialiser et lancer
 
 Objectif: lancer l'API pour comparer endpoints `vuln` et `secure`.
 
 ```powershell
-Set-Location .\04
+if\ \(Test-Path\ \.\04\)\ \{\ Set-Location\ \.\04\ }
 dotnet restore .\AppSecWorkshop04\AppSecWorkshop04.csproj
 $BaseUrl = 'http://localhost:5104'
 dotnet run --project .\AppSecWorkshop04\AppSecWorkshop04.csproj --urls=$BaseUrl
@@ -121,7 +121,7 @@ Resultat attendu: endpoint secure renvoie une erreur controlee (`ProblemDetails`
 # Dans le terminal API
 # Ctrl+C
 
-Set-Location .\04
+if\ \(Test-Path\ \.\04\)\ \{\ Set-Location\ \.\04\ }
 dotnet clean .\AppSecWorkshop04\AppSecWorkshop04.csproj
 ```
 
@@ -134,3 +134,5 @@ flowchart TD
     B --> D[Redirect control]
     B --> E[Error handling]
 ```
+
+

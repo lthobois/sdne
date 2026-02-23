@@ -7,14 +7,14 @@ Il couvre la pile d'execution, l'analyse de code, le hijacking de ressources, le
 
 - Etre positionne a la racine du depot `sdne`
 - Windows 10/11 ou Windows Server recent
-- PowerShell 7+
+- PowerShell 5.1+
 - .NET SDK 9.x
 - Port `5100` libre
 
 Verification de l'environnement:
 
 ```powershell
-pwsh --version
+`$PSVersionTable.PSVersion
 dotnet --version
 ```
 
@@ -28,7 +28,7 @@ Resultat attendu:
 Objectif: restaurer les dependances et compiler le projet.
 
 ```powershell
-Set-Location .\00
+if\ \(Test-Path\ \.\00\)\ \{\ Set-Location\ \.\00\ }
 dotnet restore .\Atelier00.slnx
 dotnet build .\Atelier00.slnx
 ```
@@ -40,7 +40,6 @@ Resultat attendu: build reussi sans erreur.
 Objectif: demarrer l'API locale pour les demonstrations `vuln` vs `secure`.
 
 ```powershell
-Set-Location .\00
 $BaseUrl = 'http://localhost:5100'
 dotnet run --project .\SecurityFoundationsLab\SecurityFoundationsLab.csproj --urls=$BaseUrl
 ```
@@ -86,7 +85,7 @@ Objectif: constater qu'un stack overflow arrete brutalement le processus.
 1. Creer un mini programme de test.
 
 ```powershell
-Set-Location .\00
+if\ \(Test-Path\ \.\00\)\ \{\ Set-Location\ \.\00\ }
 New-Item -ItemType Directory -Force .\tmp\StackOverflowDemo | Out-Null
 @"
 using System;
@@ -107,7 +106,7 @@ static class Program
 2. Creer le projet puis executer dans un processus dedie.
 
 ```powershell
-Set-Location .\00\tmp\StackOverflowDemo
+if (Test-Path .\00\tmp\StackOverflowDemo) { if\ \(Test-Path\ \.\00\)\ \{\ Set-Location\ \.\00\ }\tmp\StackOverflowDemo } elseif (Test-Path .\tmp\StackOverflowDemo) { Set-Location .\tmp\StackOverflowDemo }
 @"
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
@@ -132,7 +131,7 @@ Resultat attendu:
 Objectif: executer des controles statiques reproductibles.
 
 ```powershell
-Set-Location .\00
+if\ \(Test-Path\ \.\00\)\ \{\ Set-Location\ \.\00\ }
 dotnet build .\SecurityFoundationsLab\SecurityFoundationsLab.csproj -warnaserror
 dotnet list .\SecurityFoundationsLab\SecurityFoundationsLab.csproj package --vulnerable
 ```
@@ -275,7 +274,7 @@ Resultat attendu:
 # Dans le terminal API
 # Ctrl+C
 
-Set-Location .\00
+if\ \(Test-Path\ \.\00\)\ \{\ Set-Location\ \.\00\ }
 dotnet clean .\Atelier00.slnx
 Remove-Item -Recurse -Force .\tmp -ErrorAction SilentlyContinue
 ```
@@ -302,3 +301,5 @@ flowchart TD
     C --> D[AuthN AuthZ Chiffrement]
     D --> E[Monitoring et reponse]
 ```
+
+

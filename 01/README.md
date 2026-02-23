@@ -4,14 +4,14 @@
 
 - Etre positionne a la racine du depot `sdne`
 - .NET SDK 9.x installe
-- PowerShell 7+
+- PowerShell 5.1+
 
 ## Etape 1 - Initialiser l'atelier
 
 Objectif: restaurer les dependances et preparer l'execution locale.
 
 ```powershell
-Set-Location .\01
+if\ \(Test-Path\ \.\01\)\ \{\ Set-Location\ \.\01\ }
 dotnet restore .\BasicAuthWorkshop\BasicAuthWorkshop.csproj
 ```
 
@@ -112,7 +112,7 @@ Resultat attendu:
 # Dans le terminal API
 # Ctrl+C
 
-Set-Location .\01
+if\ \(Test-Path\ \.\01\)\ \{\ Set-Location\ \.\01\ }
 dotnet clean .\BasicAuthWorkshop\BasicAuthWorkshop.csproj
 ```
 
@@ -125,3 +125,5 @@ flowchart TD
     B --> D[Secure profile]
     B --> E[Secure admin role check]
 ```
+
+

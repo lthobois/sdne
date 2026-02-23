@@ -4,14 +4,14 @@
 
 - Etre positionne a la racine du depot `sdne`
 - .NET SDK 9.x installe
-- PowerShell 7+
+- PowerShell 5.1+
 
 ## Etape 1 - Initialiser et lancer
 
 Objectif: demarrer l'API supply-chain locale.
 
 ```powershell
-Set-Location .\06
+if\ \(Test-Path\ \.\06\)\ \{\ Set-Location\ \.\06\ }
 dotnet restore .\Atelier06.slnx
 $BaseUrl = 'http://localhost:5106'
 dotnet run --project .\SupplyChainSecurityLab\SupplyChainSecurityLab.csproj --urls=$BaseUrl
@@ -77,7 +77,7 @@ Resultat attendu: rejet de la demande invalide et hash SHA-256 valide calcule.
 Objectif: valider les controles supply-chain via tests.
 
 ```powershell
-Set-Location .\06
+if\ \(Test-Path\ \.\06\)\ \{\ Set-Location\ \.\06\ }
 dotnet test .\SupplyChainSecurityLab.Tests\SupplyChainSecurityLab.Tests.csproj
 ```
 
@@ -100,7 +100,7 @@ Resultat attendu: tests `Passed`.
 # Dans le terminal API
 # Ctrl+C
 
-Set-Location .\06
+if\ \(Test-Path\ \.\06\)\ \{\ Set-Location\ \.\06\ }
 Remove-Item Env:\UPSTREAM_API_KEY -ErrorAction SilentlyContinue
 dotnet clean .\Atelier06.slnx
 ```
@@ -114,3 +114,5 @@ flowchart TD
     C --> D[SHA256 format]
     D --> E[Approved or Rejected]
 ```
+
+

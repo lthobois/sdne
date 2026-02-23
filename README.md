@@ -5,7 +5,7 @@ Ce depot contient 11 ateliers pratiques. Chaque atelier est autonome, versionne 
 ## Pre-requis generaux
 
 - Windows 10/11 ou Windows Server recent
-- PowerShell 7+
+- PowerShell 5.1+
 - .NET SDK 9.x
 - Visual Studio 2022 ou VS Code (C# Dev Kit)
 - Acces Internet pour restauration NuGet
@@ -14,7 +14,7 @@ Ce depot contient 11 ateliers pratiques. Chaque atelier est autonome, versionne 
 Verification rapide:
 
 ```powershell
-pwsh --version
+`$PSVersionTable.PSVersion
 dotnet --version
 ```
 
@@ -75,3 +75,5 @@ dotnet clean .\FormationSecuriteDotNet.sln
 Get-ChildItem -Recurse -Directory -Filter bin | Remove-Item -Recurse -Force
 Get-ChildItem -Recurse -Directory -Filter obj | Remove-Item -Recurse -Force
 ```
+
+

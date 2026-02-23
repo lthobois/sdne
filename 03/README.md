@@ -4,14 +4,14 @@
 
 - Etre positionne a la racine du depot `sdne`
 - .NET SDK 9.x installe
-- PowerShell 7+
+- PowerShell 5.1+
 
 ## Etape 1 - Initialiser et lancer
 
 Objectif: demarrer l'API de l'atelier.
 
 ```powershell
-Set-Location .\03
+if\ \(Test-Path\ \.\03\)\ \{\ Set-Location\ \.\03\ }
 dotnet restore .\AppSecWorkshop03\AppSecWorkshop03.csproj
 $BaseUrl = 'http://localhost:5103'
 dotnet run --project .\AppSecWorkshop03\AppSecWorkshop03.csproj --urls=$BaseUrl
@@ -99,7 +99,7 @@ Resultat attendu:
 # Dans le terminal API
 # Ctrl+C
 
-Set-Location .\03
+if\ \(Test-Path\ \.\03\)\ \{\ Set-Location\ \.\03\ }
 dotnet clean .\AppSecWorkshop03\AppSecWorkshop03.csproj
 ```
 
@@ -114,3 +114,5 @@ flowchart TD
     C --> E
     D --> E
 ```
+
+

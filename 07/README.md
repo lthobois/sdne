@@ -4,14 +4,14 @@
 
 - Etre positionne a la racine du depot `sdne`
 - .NET SDK 9.x installe
-- PowerShell 7+
+- PowerShell 5.1+
 
 ## Etape 1 - Initialiser et lancer
 
 Objectif: demarrer l'API avec protections de surface d'attaque.
 
 ```powershell
-Set-Location .\07
+if\ \(Test-Path\ \.\07\)\ \{\ Set-Location\ \.\07\ }
 dotnet restore .\Atelier07.slnx
 $BaseUrl = 'http://localhost:5107'
 dotnet run --project .\ExposureDefenseLab\ExposureDefenseLab.csproj --urls=$BaseUrl
@@ -112,7 +112,7 @@ Resultat attendu: certaines requetes passent en `429`.
 # Dans le terminal API
 # Ctrl+C
 
-Set-Location .\07
+if\ \(Test-Path\ \.\07\)\ \{\ Set-Location\ \.\07\ }
 dotnet clean .\Atelier07.slnx
 ```
 
@@ -125,3 +125,5 @@ flowchart LR
     C --> D[Endpoint authz]
     D --> E[Response]
 ```
+
+

@@ -4,14 +4,14 @@
 
 - Etre positionne a la racine du depot `sdne`
 - .NET SDK 9.x installe
-- PowerShell 7+
+- PowerShell 5.1+
 
 ## Etape 1 - Initialiser et lancer
 
 Objectif: demarrer l'API de hardening AuthN/AuthZ.
 
 ```powershell
-Set-Location .\09
+if\ \(Test-Path\ \.\09\)\ \{\ Set-Location\ \.\09\ }
 dotnet restore .\Atelier09.slnx
 $BaseUrl = 'http://localhost:5109'
 dotnet run --project .\AuthzHardeningLab\AuthzHardeningLab.csproj --urls=$BaseUrl
@@ -82,7 +82,7 @@ Resultat attendu: lecture possible en mode `vuln` sans verifications equivalente
 Objectif: valider automatiquement les controles AuthN/AuthZ.
 
 ```powershell
-Set-Location .\09
+if\ \(Test-Path\ \.\09\)\ \{\ Set-Location\ \.\09\ }
 dotnet test .\AuthzHardeningLab.Tests\AuthzHardeningLab.Tests.csproj
 ```
 
@@ -105,7 +105,7 @@ Resultat attendu: tests `Passed`.
 # Dans le terminal API
 # Ctrl+C
 
-Set-Location .\09
+if\ \(Test-Path\ \.\09\)\ \{\ Set-Location\ \.\09\ }
 dotnet clean .\Atelier09.slnx
 ```
 
@@ -118,3 +118,5 @@ flowchart LR
     C --> D[Object ownership check]
     D --> E[Allow or Deny]
 ```
+
+

@@ -4,14 +4,14 @@
 
 - Etre positionne a la racine du depot `sdne`
 - .NET SDK 9.x installe
-- PowerShell 7+
+- PowerShell 5.1+
 
 ## Etape 1 - Restaurer la solution atelier
 
 Objectif: preparer API et projet de tests.
 
 ```powershell
-Set-Location .\05
+if\ \(Test-Path\ \.\05\)\ \{\ Set-Location\ \.\05\ }
 dotnet restore .\Atelier05.slnx
 ```
 
@@ -55,7 +55,7 @@ Resultat attendu: comportement vulnerable observable uniquement sur endpoints `v
 Objectif: valider la non-regression securite.
 
 ```powershell
-Set-Location .\05
+if\ \(Test-Path\ \.\05\)\ \{\ Set-Location\ \.\05\ }
 dotnet test .\SecurityValidationLab.Tests\SecurityValidationLab.Tests.csproj
 ```
 
@@ -66,7 +66,7 @@ Resultat attendu: tests `Passed`.
 Objectif: lancer une analyse statique minimale reproductible.
 
 ```powershell
-Set-Location .\05
+if\ \(Test-Path\ \.\05\)\ \{\ Set-Location\ \.\05\ }
 dotnet build .\SecurityValidationLab\SecurityValidationLab.csproj -warnaserror
 ```
 
@@ -109,7 +109,7 @@ Resultat attendu: tous les checks retounent `200` sur les cas valides.
 # Dans le terminal API
 # Ctrl+C
 
-Set-Location .\05
+if\ \(Test-Path\ \.\05\)\ \{\ Set-Location\ \.\05\ }
 dotnet clean .\Atelier05.slnx
 ```
 
@@ -122,3 +122,5 @@ flowchart LR
     C --> D[Manual DAST checks]
     D --> E[Decision]
 ```
+
+
