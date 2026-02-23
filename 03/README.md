@@ -3,15 +3,20 @@
 ## Pre-requis
 
 - Etre positionne a la racine du depot `sdne`
-- .NET SDK 9.x installe
+- .NET SDK 10.x installe
 - PowerShell 5.1+
 
 ## Etape 1 - Initialiser et lancer
 
 Objectif: demarrer l'API de l'atelier.
 
+Code source a observer:
+- `03/AppSecWorkshop03/Program.cs:19`
+- `03/AppSecWorkshop03/Security/VulnerableSessionService.cs:7`
+- `03/AppSecWorkshop03/Security/SecureSessionService.cs:9`
+
 ```powershell
-if\ \(Test-Path\ \.\03\)\ \{\ Set-Location\ \.\03\ }
+if (Test-Path .\03) { Set-Location .\03 }
 dotnet restore .\AppSecWorkshop03\AppSecWorkshop03.csproj
 $BaseUrl = 'http://localhost:5103'
 dotnet run --project .\AppSecWorkshop03\AppSecWorkshop03.csproj --urls=$BaseUrl
@@ -22,6 +27,11 @@ Resultat attendu: API active sur `http://localhost:5103`.
 ## Etape 2 - Session theft (token)
 
 Objectif: comparer validation faible et validation renforcee.
+
+Code source a observer:
+- `03/AppSecWorkshop03/Program.cs:26`
+- `03/AppSecWorkshop03/Program.cs:47`
+- `03/AppSecWorkshop03/Security/SecureSessionService.cs:22`
 
 ```powershell
 $BaseUrl = 'http://localhost:5103'
@@ -42,6 +52,11 @@ Resultat attendu: profile secure valide seulement avec token + contexte attendu.
 
 Objectif: tester endpoint vulnerable puis endpoint securise.
 
+Code source a observer:
+- `03/AppSecWorkshop03/Program.cs:75`
+- `03/AppSecWorkshop03/Program.cs:94`
+- `03/AppSecWorkshop03/Serialization/WorkshopActions.cs:5`
+
 ```powershell
 $BaseUrl = 'http://localhost:5103'
 
@@ -61,6 +76,11 @@ Resultat attendu: seule l'action `echo` est acceptee en mode secure.
 ## Etape 4 - IDOR
 
 Objectif: verifier qu'un utilisateur ne lit pas une ressource qui ne lui appartient pas.
+
+Code source a observer:
+- `03/AppSecWorkshop03/Program.cs:108`
+- `03/AppSecWorkshop03/Program.cs:124`
+- `03/AppSecWorkshop03/Data/OrderRepository.cs:3`
 
 ```powershell
 $BaseUrl = 'http://localhost:5103'
@@ -99,7 +119,7 @@ Resultat attendu:
 # Dans le terminal API
 # Ctrl+C
 
-if\ \(Test-Path\ \.\03\)\ \{\ Set-Location\ \.\03\ }
+if (Test-Path .\03) { Set-Location .\03 }
 dotnet clean .\AppSecWorkshop03\AppSecWorkshop03.csproj
 ```
 
@@ -114,5 +134,9 @@ flowchart TD
     C --> E
     D --> E
 ```
+
+
+
+
 
 

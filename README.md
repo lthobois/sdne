@@ -6,7 +6,7 @@ Ce depot contient 11 ateliers pratiques. Chaque atelier est autonome, versionne 
 
 - Windows 10/11 ou Windows Server recent
 - PowerShell 5.1+
-- .NET SDK 9.x
+- .NET SDK 10.x
 - Visual Studio 2022 ou VS Code (C# Dev Kit)
 - Acces Internet pour restauration NuGet
 - Port HTTP local libre (chaque atelier propose un port dedie)
@@ -75,5 +75,7 @@ dotnet clean .\FormationSecuriteDotNet.sln
 Get-ChildItem -Recurse -Directory -Filter bin | Remove-Item -Recurse -Force
 Get-ChildItem -Recurse -Directory -Filter obj | Remove-Item -Recurse -Force
 ```
+
+
 
 

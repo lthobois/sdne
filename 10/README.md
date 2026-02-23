@@ -3,7 +3,7 @@
 ## Pre-requis
 
 - Etre positionne a la racine du depot `sdne`
-- .NET SDK 9.x installe
+- .NET SDK 10.x installe
 - PowerShell 5.1+
 - (Optionnel) Docker Desktop pour scenario compose/nginx
 
@@ -11,8 +11,12 @@
 
 Objectif: demarrer l'API perimetrique locale.
 
+Code source a observer:
+- `10/PerimeterValidationLab/Program.cs:14`
+- `10/PerimeterValidationLab/Program.cs:5`
+
 ```powershell
-if\ \(Test-Path\ \.\10\)\ \{\ Set-Location\ \.\10\ }
+if (Test-Path .\10) { Set-Location .\10 }
 dotnet restore .\Atelier10.slnx
 $BaseUrl = 'http://localhost:5110'
 dotnet run --project .\PerimeterValidationLab\PerimeterValidationLab.csproj --urls=$BaseUrl
@@ -23,6 +27,11 @@ Resultat attendu: API active sur `http://localhost:5110`.
 ## Etape 2 - Header injection sur lien de reset
 
 Objectif: comparer resolution d'origine vulnerable et securisee.
+
+Code source a observer:
+- `10/PerimeterValidationLab/Program.cs:20`
+- `10/PerimeterValidationLab/Program.cs:36`
+- `10/PerimeterValidationLab/Security/TrustedProxyPolicy.cs:11`
 
 ```powershell
 $BaseUrl = 'http://localhost:5110'
@@ -42,6 +51,11 @@ Resultat attendu: endpoint secure rejette origine non fiable.
 
 Objectif: verifier protection de la resolution multi-tenant par host.
 
+Code source a observer:
+- `10/PerimeterValidationLab/Program.cs:52`
+- `10/PerimeterValidationLab/Program.cs:64`
+- `10/PerimeterValidationLab/Security/TrustedProxyPolicy.cs:46`
+
 ```powershell
 $BaseUrl = 'http://localhost:5110'
 $headersBad = @{ 'X-Forwarded-Host' = 'unknown-tenant.local'; 'X-Forwarded-Proto' = 'https' }
@@ -60,6 +74,10 @@ Resultat attendu: tenant inconnu refuse en mode secure (`403` ou `400`).
 
 Objectif: verifier ce que l'API conserve des headers forwarded.
 
+Code source a observer:
+- `10/PerimeterValidationLab/Program.cs:84`
+- `10/PerimeterValidationLab/Security/TrustedProxyPolicy.cs:11`
+
 ```powershell
 $BaseUrl = 'http://localhost:5110'
 $headers = @{ 'X-Forwarded-Host' = 'app.example.local'; 'X-Forwarded-Proto' = 'https' }
@@ -72,8 +90,12 @@ Resultat attendu: JSON de diagnostic avec `resolved.Valid` et details de resolut
 
 Objectif: executer le scenario proxy + application.
 
+Code source a observer:
+- `10/infra/docker-compose.yml:1`
+- `10/infra/nginx.conf:1`
+
 ```powershell
-if (Test-Path .\10\infra) { if\ \(Test-Path\ \.\10\)\ \{\ Set-Location\ \.\10\ }\infra } elseif (Test-Path .\infra) { if (Test-Path .\infra) { Set-Location .\infra } }
+if (Test-Path .\10\infra) { Set-Location .\10\infra } elseif (Test-Path .\infra) { Set-Location .\infra }
 docker compose up -d
 ```
 
@@ -89,8 +111,11 @@ Resultat attendu: services `Up`.
 
 Objectif: valider automatiquement les regles perimetriques.
 
+Code source a observer:
+- `10/PerimeterValidationLab.Tests/PerimeterValidationTests.cs:6`
+
 ```powershell
-if\ \(Test-Path\ \.\10\)\ \{\ Set-Location\ \.\10\ }
+if (Test-Path .\10) { Set-Location .\10 }
 dotnet test .\PerimeterValidationLab.Tests\PerimeterValidationLab.Tests.csproj
 ```
 
@@ -113,7 +138,7 @@ Resultat attendu: tests `Passed`.
 # Dans le terminal API
 # Ctrl+C
 
-if\ \(Test-Path\ \.\10\)\ \{\ Set-Location\ \.\10\ }
+if (Test-Path .\10) { Set-Location .\10 }
 if (Test-Path .\infra) { Set-Location .\infra }
 docker compose down
 
@@ -130,5 +155,9 @@ flowchart TD
     C --> D[Tenant validation]
     D --> E[Secure endpoint response]
 ```
+
+
+
+
 
 

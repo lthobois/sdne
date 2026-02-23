@@ -3,15 +3,20 @@
 ## Pre-requis
 
 - Etre positionne a la racine du depot `sdne`
-- .NET SDK 9.x installe
+- .NET SDK 10.x installe
 - PowerShell 5.1+
 
 ## Etape 1 - Initialiser et lancer
 
 Objectif: lancer l'API pour comparer endpoints `vuln` et `secure`.
 
+Code source a observer:
+- `04/AppSecWorkshop04/Program.cs:13`
+- `04/AppSecWorkshop04/Program.cs:16`
+- `04/AppSecWorkshop04/Program.cs:25`
+
 ```powershell
-if\ \(Test-Path\ \.\04\)\ \{\ Set-Location\ \.\04\ }
+if (Test-Path .\04) { Set-Location .\04 }
 dotnet restore .\AppSecWorkshop04\AppSecWorkshop04.csproj
 $BaseUrl = 'http://localhost:5104'
 dotnet run --project .\AppSecWorkshop04\AppSecWorkshop04.csproj --urls=$BaseUrl
@@ -22,6 +27,11 @@ Resultat attendu: API active sur `http://localhost:5104`.
 ## Etape 2 - Validation des entrees (register)
 
 Objectif: constater l'absence de validation puis la validation forte.
+
+Code source a observer:
+- `04/AppSecWorkshop04/Program.cs:37`
+- `04/AppSecWorkshop04/Program.cs:51`
+- `04/AppSecWorkshop04/Program.cs:172`
 
 ```powershell
 $BaseUrl = 'http://localhost:5104'
@@ -48,6 +58,10 @@ Resultat attendu:
 
 Objectif: comparer lecture de chemin libre vs chemin contraint.
 
+Code source a observer:
+- `04/AppSecWorkshop04/Program.cs:83`
+- `04/AppSecWorkshop04/Program.cs:100`
+
 ```powershell
 $BaseUrl = 'http://localhost:5104'
 
@@ -69,6 +83,10 @@ Resultat attendu: tentative traversal rejetee cote `secure`.
 
 Objectif: verifier qu'une URL externe est refusee sur endpoint securise.
 
+Code source a observer:
+- `04/AppSecWorkshop04/Program.cs:124`
+- `04/AppSecWorkshop04/Program.cs:129`
+
 ```powershell
 $BaseUrl = 'http://localhost:5104'
 
@@ -88,6 +106,10 @@ Resultat attendu: URL externe refusee sur endpoint secure.
 ## Etape 5 - Gestion d'erreurs
 
 Objectif: comparer fuite d'erreur brute et reponse maitrisee.
+
+Code source a observer:
+- `04/AppSecWorkshop04/Program.cs:144`
+- `04/AppSecWorkshop04/Program.cs:151`
 
 ```powershell
 $BaseUrl = 'http://localhost:5104'
@@ -121,7 +143,7 @@ Resultat attendu: endpoint secure renvoie une erreur controlee (`ProblemDetails`
 # Dans le terminal API
 # Ctrl+C
 
-if\ \(Test-Path\ \.\04\)\ \{\ Set-Location\ \.\04\ }
+if (Test-Path .\04) { Set-Location .\04 }
 dotnet clean .\AppSecWorkshop04\AppSecWorkshop04.csproj
 ```
 
@@ -134,5 +156,9 @@ flowchart TD
     B --> D[Redirect control]
     B --> E[Error handling]
 ```
+
+
+
+
 
 

@@ -3,15 +3,20 @@
 ## Pre-requis
 
 - Etre positionne a la racine du depot `sdne`
-- .NET SDK 9.x installe
+- .NET SDK 10.x installe
 - PowerShell 5.1+
 
 ## Etape 1 - Initialiser et lancer
 
 Objectif: demarrer l'API de hardening AuthN/AuthZ.
 
+Code source a observer:
+- `09/AuthzHardeningLab/Program.cs:15`
+- `09/AuthzHardeningLab/Security/TokenService.cs:10`
+- `09/AuthzHardeningLab/Security/DocumentStore.cs:3`
+
 ```powershell
-if\ \(Test-Path\ \.\09\)\ \{\ Set-Location\ \.\09\ }
+if (Test-Path .\09) { Set-Location .\09 }
 dotnet restore .\Atelier09.slnx
 $BaseUrl = 'http://localhost:5109'
 dotnet run --project .\AuthzHardeningLab\AuthzHardeningLab.csproj --urls=$BaseUrl
@@ -22,6 +27,11 @@ Resultat attendu: API active sur `http://localhost:5109`.
 ## Etape 2 - Emettre un token vulnerable et un token secure
 
 Objectif: comparer format non signe et token valide.
+
+Code source a observer:
+- `09/AuthzHardeningLab/Program.cs:21`
+- `09/AuthzHardeningLab/Program.cs:27`
+- `09/AuthzHardeningLab/Security/TokenService.cs:18`
 
 ```powershell
 $BaseUrl = 'http://localhost:5109'
@@ -39,6 +49,11 @@ Resultat attendu: token secure recu pour les appels proteges.
 ## Etape 3 - Controle d'acces objet (lecture document)
 
 Objectif: verifier scope + ownership.
+
+Code source a observer:
+- `09/AuthzHardeningLab/Program.cs:49`
+- `09/AuthzHardeningLab/Security/TokenService.cs:64`
+- `09/AuthzHardeningLab/Security/DocumentStore.cs:12`
 
 ```powershell
 $BaseUrl = 'http://localhost:5109'
@@ -58,6 +73,10 @@ Resultat attendu: document hors perimetre refuse (`403`) sauf scope/ownership ad
 
 Objectif: verifier la politique `docs.publish` + ownership.
 
+Code source a observer:
+- `09/AuthzHardeningLab/Program.cs:87`
+- `09/AuthzHardeningLab/Security/TokenService.cs:64`
+
 ```powershell
 $BaseUrl = 'http://localhost:5109'
 $headers = @{ Authorization = "Bearer $Bearer" }
@@ -70,6 +89,9 @@ Resultat attendu: publication autorisee si le token et le proprietaire sont vali
 
 Objectif: observer l'absence de controle robuste sur endpoint vuln.
 
+Code source a observer:
+- `09/AuthzHardeningLab/Program.cs:33`
+
 ```powershell
 $BaseUrl = 'http://localhost:5109'
 Invoke-RestMethod -Uri "$BaseUrl/vuln/docs/2?username=alice" -Method Get
@@ -81,8 +103,11 @@ Resultat attendu: lecture possible en mode `vuln` sans verifications equivalente
 
 Objectif: valider automatiquement les controles AuthN/AuthZ.
 
+Code source a observer:
+- `09/AuthzHardeningLab.Tests/AuthzHardeningTests.cs:8`
+
 ```powershell
-if\ \(Test-Path\ \.\09\)\ \{\ Set-Location\ \.\09\ }
+if (Test-Path .\09) { Set-Location .\09 }
 dotnet test .\AuthzHardeningLab.Tests\AuthzHardeningLab.Tests.csproj
 ```
 
@@ -105,7 +130,7 @@ Resultat attendu: tests `Passed`.
 # Dans le terminal API
 # Ctrl+C
 
-if\ \(Test-Path\ \.\09\)\ \{\ Set-Location\ \.\09\ }
+if (Test-Path .\09) { Set-Location .\09 }
 dotnet clean .\Atelier09.slnx
 ```
 
@@ -118,5 +143,9 @@ flowchart LR
     C --> D[Object ownership check]
     D --> E[Allow or Deny]
 ```
+
+
+
+
 
 

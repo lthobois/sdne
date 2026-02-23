@@ -3,15 +3,20 @@
 ## Pre-requis
 
 - Etre positionne a la racine du depot `sdne`
-- .NET SDK 9.x installe
+- .NET SDK 10.x installe
 - PowerShell 5.1+
 
 ## Etape 1 - Initialiser et lancer
 
 Objectif: demarrer l'API avec protections de surface d'attaque.
 
+Code source a observer:
+- `07/ExposureDefenseLab/Program.cs:5`
+- `07/ExposureDefenseLab/Program.cs:29`
+- `07/ExposureDefenseLab/Program.cs:47`
+
 ```powershell
-if\ \(Test-Path\ \.\07\)\ \{\ Set-Location\ \.\07\ }
+if (Test-Path .\07) { Set-Location .\07 }
 dotnet restore .\Atelier07.slnx
 $BaseUrl = 'http://localhost:5107'
 dotnet run --project .\ExposureDefenseLab\ExposureDefenseLab.csproj --urls=$BaseUrl
@@ -22,6 +27,10 @@ Resultat attendu: API active sur `http://localhost:5107`.
 ## Etape 2 - Endpoint admin: vuln vs secure
 
 Objectif: observer la protection par cle API admin.
+
+Code source a observer:
+- `07/ExposureDefenseLab/Program.cs:53`
+- `07/ExposureDefenseLab/Program.cs:59`
 
 ```powershell
 $BaseUrl = 'http://localhost:5107'
@@ -43,6 +52,10 @@ Resultat attendu: acces secure autorise uniquement avec `X-Admin-Key` valide.
 
 Objectif: verifier blocage de patterns malveillants.
 
+Code source a observer:
+- `07/ExposureDefenseLab/Program.cs:32`
+- `07/ExposureDefenseLab/Program.cs:37`
+
 ```powershell
 $BaseUrl = 'http://localhost:5107'
 Invoke-RestMethod -Uri "$BaseUrl/secure/search?q=normal-query" -Method Get
@@ -59,6 +72,10 @@ Resultat attendu: requete suspecte bloquee en `403`.
 ## Etape 4 - Validation metadata upload
 
 Objectif: verifier controles type/taille/nom de fichier.
+
+Code source a observer:
+- `07/ExposureDefenseLab/Program.cs:88`
+- `07/ExposureDefenseLab/Program.cs:97`
 
 ```powershell
 $BaseUrl = 'http://localhost:5107'
@@ -79,6 +96,11 @@ Resultat attendu: payload invalide refuse.
 ## Etape 5 - Rate limiting
 
 Objectif: observer la limitation du debit.
+
+Code source a observer:
+- `07/ExposureDefenseLab/Program.cs:5`
+- `07/ExposureDefenseLab/Program.cs:7`
+- `07/ExposureDefenseLab/Program.cs:15`
 
 ```powershell
 $BaseUrl = 'http://localhost:5107'
@@ -112,7 +134,7 @@ Resultat attendu: certaines requetes passent en `429`.
 # Dans le terminal API
 # Ctrl+C
 
-if\ \(Test-Path\ \.\07\)\ \{\ Set-Location\ \.\07\ }
+if (Test-Path .\07) { Set-Location .\07 }
 dotnet clean .\Atelier07.slnx
 ```
 
@@ -125,5 +147,9 @@ flowchart LR
     C --> D[Endpoint authz]
     D --> E[Response]
 ```
+
+
+
+
 
 

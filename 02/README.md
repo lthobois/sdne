@@ -3,15 +3,19 @@
 ## Pre-requis
 
 - Etre positionne a la racine du depot `sdne`
-- .NET SDK 9.x installe
+- .NET SDK 10.x installe
 - PowerShell 5.1+
 
 ## Etape 1 - Initialiser et lancer l'API
 
 Objectif: restaurer, compiler et lancer l'atelier.
 
+Code source a observer:
+- `02/AppSecWorkshop02/Program.cs:22`
+- `02/AppSecWorkshop02/Data/DbInitializer.cs:5`
+
 ```powershell
-if\ \(Test-Path\ \.\02\)\ \{\ Set-Location\ \.\02\ }
+if (Test-Path .\02) { Set-Location .\02 }
 dotnet restore .\AppSecWorkshop02\AppSecWorkshop02.csproj
 $BaseUrl = 'http://localhost:5102'
 dotnet run --project .\AppSecWorkshop02\AppSecWorkshop02.csproj --urls=$BaseUrl
@@ -22,6 +26,10 @@ Resultat attendu: API active sur `http://localhost:5102`.
 ## Etape 2 - SQL Injection: comparer vuln vs secure
 
 Objectif: visualiser la difference entre requete concatenee et requete parametree.
+
+Code source a observer:
+- `02/AppSecWorkshop02/Program.cs:29`
+- `02/AppSecWorkshop02/Program.cs:53`
 
 ```powershell
 $BaseUrl = 'http://localhost:5102'
@@ -40,6 +48,10 @@ Resultat attendu:
 
 Objectif: comparer sortie HTML non encodee vs encodee.
 
+Code source a observer:
+- `02/AppSecWorkshop02/Program.cs:77`
+- `02/AppSecWorkshop02/Program.cs:90`
+
 ```powershell
 $BaseUrl = 'http://localhost:5102'
 $payload = '<script>alert("xss")</script>'
@@ -56,6 +68,12 @@ Resultat attendu:
 ## Etape 4 - CSRF
 
 Objectif: reproduire un transfert sans token puis avec token valide.
+
+Code source a observer:
+- `02/AppSecWorkshop02/Program.cs:104`
+- `02/AppSecWorkshop02/Program.cs:123`
+- `02/AppSecWorkshop02/Program.cs:145`
+- `02/AppSecWorkshop02/Security/SessionStore.cs:7`
 
 ```powershell
 $BaseUrl = 'http://localhost:5102'
@@ -87,6 +105,11 @@ Resultat attendu:
 ## Etape 5 - SSRF
 
 Objectif: verifier le filtrage d'URL sortante.
+
+Code source a observer:
+- `02/AppSecWorkshop02/Program.cs:172`
+- `02/AppSecWorkshop02/Program.cs:180`
+- `02/AppSecWorkshop02/Security/SsrfGuard.cs:14`
 
 ```powershell
 $BaseUrl = 'http://localhost:5102'
@@ -120,7 +143,7 @@ Resultat attendu: URL sensible/localhost rejetee sur endpoint `secure`.
 # Dans le terminal API
 # Ctrl+C
 
-if\ \(Test-Path\ \.\02\)\ \{\ Set-Location\ \.\02\ }
+if (Test-Path .\02) { Set-Location .\02 }
 Remove-Item .\workshop.db -ErrorAction SilentlyContinue
 dotnet clean .\AppSecWorkshop02\AppSecWorkshop02.csproj
 ```
@@ -135,5 +158,9 @@ flowchart TD
     B --> E[CSRF checks]
     B --> F[SSRF checks]
 ```
+
+
+
+
 
 

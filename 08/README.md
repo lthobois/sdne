@@ -3,15 +3,19 @@
 ## Pre-requis
 
 - Etre positionne a la racine du depot `sdne`
-- .NET SDK 9.x installe
+- .NET SDK 10.x installe
 - PowerShell 5.1+
 
 ## Etape 1 - Initialiser et lancer
 
 Objectif: demarrer l'API de monitoring.
 
+Code source a observer:
+- `08/SecurityMonitoringLab/Program.cs:15`
+- `08/SecurityMonitoringLab/Program.cs:29`
+
 ```powershell
-if\ \(Test-Path\ \.\08\)\ \{\ Set-Location\ \.\08\ }
+if (Test-Path .\08) { Set-Location .\08 }
 dotnet restore .\Atelier08.slnx
 $BaseUrl = 'http://localhost:5108'
 dotnet run --project .\SecurityMonitoringLab\SecurityMonitoringLab.csproj --urls=$BaseUrl
@@ -22,6 +26,12 @@ Resultat attendu: API active sur `http://localhost:5108`.
 ## Etape 2 - Login vulnerable vs secure
 
 Objectif: comparer journalisation et audit.
+
+Code source a observer:
+- `08/SecurityMonitoringLab/Program.cs:35`
+- `08/SecurityMonitoringLab/Program.cs:49`
+- `08/SecurityMonitoringLab/Monitoring/AuditStore.cs:7`
+- `08/SecurityMonitoringLab/Monitoring/SecurityAlertService.cs:8`
 
 ```powershell
 $BaseUrl = 'http://localhost:5108'
@@ -39,6 +49,10 @@ Resultat attendu: reponses avec `correlationId` et etat `authenticated`.
 
 Objectif: verifier les evenements de securite produits.
 
+Code source a observer:
+- `08/SecurityMonitoringLab/Program.cs:74`
+- `08/SecurityMonitoringLab/Monitoring/AuditStore.cs:15`
+
 ```powershell
 $BaseUrl = 'http://localhost:5108'
 Invoke-RestMethod -Uri "$BaseUrl/secure/audit/events" -Method Get
@@ -50,6 +64,10 @@ Resultat attendu: liste d'evenements `auth.failure` et `auth.success`.
 
 Objectif: observer la remontee d'alertes sur echecs d'authentification.
 
+Code source a observer:
+- `08/SecurityMonitoringLab/Program.cs:79`
+- `08/SecurityMonitoringLab/Monitoring/SecurityAlertService.cs:8`
+
 ```powershell
 $BaseUrl = 'http://localhost:5108'
 Invoke-RestMethod -Uri "$BaseUrl/secure/alerts" -Method Get
@@ -60,6 +78,10 @@ Resultat attendu: compteur d'alertes non vide apres plusieurs echecs.
 ## Etape 5 - Reset alertes (admin)
 
 Objectif: verifier protection de l'action SOC sensible.
+
+Code source a observer:
+- `08/SecurityMonitoringLab/Program.cs:84`
+- `08/SecurityMonitoringLab/Program.cs:90`
 
 ```powershell
 $BaseUrl = 'http://localhost:5108'
@@ -81,8 +103,11 @@ Resultat attendu: reset autorise uniquement avec cle SOC.
 
 Objectif: valider les scenarios de monitoring automatiquement.
 
+Code source a observer:
+- `08/SecurityMonitoringLab.Tests/SecurityMonitoringTests.cs:7`
+
 ```powershell
-if\ \(Test-Path\ \.\08\)\ \{\ Set-Location\ \.\08\ }
+if (Test-Path .\08) { Set-Location .\08 }
 dotnet test .\SecurityMonitoringLab.Tests\SecurityMonitoringLab.Tests.csproj
 ```
 
@@ -105,7 +130,7 @@ Resultat attendu: tests `Passed`.
 # Dans le terminal API
 # Ctrl+C
 
-if\ \(Test-Path\ \.\08\)\ \{\ Set-Location\ \.\08\ }
+if (Test-Path .\08) { Set-Location .\08 }
 dotnet clean .\Atelier08.slnx
 ```
 
@@ -119,5 +144,9 @@ flowchart TD
     C --> E[Audit endpoint]
     D --> F[Alerts endpoint]
 ```
+
+
+
+
 
 

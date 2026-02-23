@@ -3,15 +3,19 @@
 ## Pre-requis
 
 - Etre positionne a la racine du depot `sdne`
-- .NET SDK 9.x installe
+- .NET SDK 10.x installe
 - PowerShell 5.1+
 
 ## Etape 1 - Initialiser et lancer
 
 Objectif: demarrer l'API supply-chain locale.
 
+Code source a observer:
+- `06/SupplyChainSecurityLab/Program.cs:20`
+- `06/SupplyChainSecurityLab/Security/SupplyChainPolicy.cs:3`
+
 ```powershell
-if\ \(Test-Path\ \.\06\)\ \{\ Set-Location\ \.\06\ }
+if (Test-Path .\06) { Set-Location .\06 }
 dotnet restore .\Atelier06.slnx
 $BaseUrl = 'http://localhost:5106'
 dotnet run --project .\SupplyChainSecurityLab\SupplyChainSecurityLab.csproj --urls=$BaseUrl
@@ -22,6 +26,10 @@ Resultat attendu: API active sur `http://localhost:5106`.
 ## Etape 2 - Secrets: hardcode vs variable d'environnement
 
 Objectif: verifier la difference de gestion de secret.
+
+Code source a observer:
+- `06/SupplyChainSecurityLab/Program.cs:26`
+- `06/SupplyChainSecurityLab/Program.cs:32`
 
 ```powershell
 $BaseUrl = 'http://localhost:5106'
@@ -36,6 +44,11 @@ Resultat attendu: endpoint secure indique `keyConfigured = true`.
 ## Etape 3 - Appels sortants controles
 
 Objectif: comparer fetch non filtre et fetch filtre.
+
+Code source a observer:
+- `06/SupplyChainSecurityLab/Program.cs:43`
+- `06/SupplyChainSecurityLab/Program.cs:55`
+- `06/SupplyChainSecurityLab/Security/OutboundRequestGuard.cs:5`
 
 ```powershell
 $BaseUrl = 'http://localhost:5106'
@@ -54,6 +67,12 @@ Resultat attendu: URL locale rejetee en mode secure.
 ## Etape 4 - Approbation de dependance
 
 Objectif: tester controles allowlist + format SHA-256.
+
+Code source a observer:
+- `06/SupplyChainSecurityLab/Program.cs:82`
+- `06/SupplyChainSecurityLab/Program.cs:92`
+- `06/SupplyChainSecurityLab/Program.cs:133`
+- `06/SupplyChainSecurityLab/Security/SupplyChainPolicy.cs:3`
 
 ```powershell
 $BaseUrl = 'http://localhost:5106'
@@ -76,8 +95,11 @@ Resultat attendu: rejet de la demande invalide et hash SHA-256 valide calcule.
 
 Objectif: valider les controles supply-chain via tests.
 
+Code source a observer:
+- `06/SupplyChainSecurityLab.Tests/SupplyChainSecurityTests.cs:7`
+
 ```powershell
-if\ \(Test-Path\ \.\06\)\ \{\ Set-Location\ \.\06\ }
+if (Test-Path .\06) { Set-Location .\06 }
 dotnet test .\SupplyChainSecurityLab.Tests\SupplyChainSecurityLab.Tests.csproj
 ```
 
@@ -100,7 +122,7 @@ Resultat attendu: tests `Passed`.
 # Dans le terminal API
 # Ctrl+C
 
-if\ \(Test-Path\ \.\06\)\ \{\ Set-Location\ \.\06\ }
+if (Test-Path .\06) { Set-Location .\06 }
 Remove-Item Env:\UPSTREAM_API_KEY -ErrorAction SilentlyContinue
 dotnet clean .\Atelier06.slnx
 ```
@@ -114,5 +136,9 @@ flowchart TD
     C --> D[SHA256 format]
     D --> E[Approved or Rejected]
 ```
+
+
+
+
 
 

@@ -8,7 +8,7 @@ Il couvre la pile d'execution, l'analyse de code, le hijacking de ressources, le
 - Etre positionne a la racine du depot `sdne`
 - Windows 10/11 ou Windows Server recent
 - PowerShell 5.1+
-- .NET SDK 9.x
+- .NET SDK 10.x
 - Port `5100` libre
 
 Verification de l'environnement:
@@ -20,15 +20,19 @@ dotnet --version
 
 Resultat attendu:
 
-- `pwsh` >= 7
-- `dotnet` commence par `9.`
+- `pwsh` >= 5
+- `dotnet` commence par `10.`
 
 ## Etape 1 - Initialiser l'atelier
 
 Objectif: restaurer les dependances et compiler le projet.
 
+Code source a observer:
+- `00/SecurityFoundationsLab/SecurityFoundationsLab.csproj:4`
+- `00/SecurityFoundationsLab/Program.cs:4`
+
 ```powershell
-if\ \(Test-Path\ \.\00\)\ \{\ Set-Location\ \.\00\ }
+if (Test-Path .\00) { Set-Location .\00 }
 dotnet restore .\Atelier00.slnx
 dotnet build .\Atelier00.slnx
 ```
@@ -38,6 +42,10 @@ Resultat attendu: build reussi sans erreur.
 ## Etape 2 - Lancer l'API de rappel securite
 
 Objectif: demarrer l'API locale pour les demonstrations `vuln` vs `secure`.
+
+Code source a observer:
+- `00/SecurityFoundationsLab/Program.cs:10`
+- `00/SecurityFoundationsLab/Program.cs:23`
 
 ```powershell
 $BaseUrl = 'http://localhost:5100'
@@ -49,6 +57,10 @@ Resultat attendu: message `Now listening on: http://localhost:5100`.
 ## Etape 3 - Verifier l'agenda et le cycle de vie securite
 
 Objectif: visualiser l'approche secure-by-design et shift-left.
+
+Code source a observer:
+- `00/SecurityFoundationsLab/Program.cs:23`
+- `00/SecurityFoundationsLab/Program.cs:36`
 
 Executer dans un second terminal PowerShell:
 
@@ -67,6 +79,11 @@ Resultat attendu:
 
 Objectif: comprendre la distinction stack/heap et observer une recursion controlee.
 
+Code source a observer:
+- `00/SecurityFoundationsLab/Program.cs:51`
+- `00/SecurityFoundationsLab/Program.cs:58`
+- `00/SecurityFoundationsLab/Program.cs:266`
+
 ```powershell
 $BaseUrl = 'http://localhost:5100'
 Invoke-RestMethod -Uri "$BaseUrl/runtime/stack-vs-heap" -Method Get
@@ -82,10 +99,14 @@ Resultat attendu:
 
 Objectif: constater qu'un stack overflow arrete brutalement le processus.
 
+Code source a observer:
+- `00/samples/StackOverflowDemo/Program.cs:5`
+- `00/samples/StackOverflowDemo/Program.cs:11`
+
 1. Creer un mini programme de test.
 
 ```powershell
-if\ \(Test-Path\ \.\00\)\ \{\ Set-Location\ \.\00\ }
+if (Test-Path .\00) { Set-Location .\00 }
 New-Item -ItemType Directory -Force .\tmp\StackOverflowDemo | Out-Null
 @"
 using System;
@@ -106,12 +127,12 @@ static class Program
 2. Creer le projet puis executer dans un processus dedie.
 
 ```powershell
-if (Test-Path .\00\tmp\StackOverflowDemo) { if\ \(Test-Path\ \.\00\)\ \{\ Set-Location\ \.\00\ }\tmp\StackOverflowDemo } elseif (Test-Path .\tmp\StackOverflowDemo) { Set-Location .\tmp\StackOverflowDemo }
+if (Test-Path .\00\tmp\StackOverflowDemo) { Set-Location .\00\tmp\StackOverflowDemo } elseif (Test-Path .\tmp\StackOverflowDemo) { Set-Location .\tmp\StackOverflowDemo }
 @"
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -130,8 +151,12 @@ Resultat attendu:
 
 Objectif: executer des controles statiques reproductibles.
 
+Code source a observer:
+- `00/SecurityFoundationsLab/SecurityFoundationsLab.csproj:4`
+- `00/SecurityFoundationsLab/Program.cs:88`
+
 ```powershell
-if\ \(Test-Path\ \.\00\)\ \{\ Set-Location\ \.\00\ }
+if (Test-Path .\00) { Set-Location .\00 }
 dotnet build .\SecurityFoundationsLab\SecurityFoundationsLab.csproj -warnaserror
 dotnet list .\SecurityFoundationsLab\SecurityFoundationsLab.csproj package --vulnerable
 ```
@@ -144,6 +169,11 @@ Resultat attendu:
 ## Etape 7 - DAST (analyse dynamique)
 
 Objectif: simuler des tests boite noire sur endpoints exposes.
+
+Code source a observer:
+- `00/SecurityFoundationsLab/Program.cs:88`
+- `00/SecurityFoundationsLab/Program.cs:103`
+- `00/SecurityFoundationsLab/Program.cs:109`
 
 ```powershell
 $BaseUrl = 'http://localhost:5100'
@@ -160,6 +190,10 @@ Resultat attendu:
 ## Etape 8 - Session hijacking: comparer cookie vuln vs secure
 
 Objectif: observer les attributs de cookie de session.
+
+Code source a observer:
+- `00/SecurityFoundationsLab/Program.cs:118`
+- `00/SecurityFoundationsLab/Program.cs:136`
 
 ```powershell
 $BaseUrl = 'http://localhost:5100'
@@ -181,6 +215,11 @@ Resultat attendu:
 
 Objectif: comparer consommation non limitee et controlee.
 
+Code source a observer:
+- `00/SecurityFoundationsLab/Program.cs:154`
+- `00/SecurityFoundationsLab/Program.cs:175`
+- `00/SecurityFoundationsLab/Program.cs:278`
+
 ```powershell
 $BaseUrl = 'http://localhost:5100'
 Invoke-RestMethod -Uri "$BaseUrl/vuln/resource/cpu?seconds=2" -Method Get
@@ -196,12 +235,17 @@ Resultat attendu:
 
 Objectif: verifier la validation de chemin et de repertoire de confiance.
 
+Code source a observer:
+- `00/SecurityFoundationsLab/Program.cs:208`
+- `00/SecurityFoundationsLab/Program.cs:222`
+- `00/SecurityFoundationsLab/Program.cs:15`
+
 ```powershell
 $BaseUrl = 'http://localhost:5100'
 Invoke-RestMethod -Uri "$BaseUrl/vuln/dll/search-order?dllName=crypto.dll" -Method Get
 
 # Construire un chemin absolu vers la DLL de demonstration creee par l'application
-$DemoDll = Join-Path (Resolve-Path .\00\SecurityFoundationsLab\bin\Debug\net9.0).Path 'trusted-dll\safe-demo.dll'
+$DemoDll = Join-Path (Resolve-Path .\00\SecurityFoundationsLab\bin\Debug\net10.0).Path 'trusted-dll\safe-demo.dll'
 Invoke-RestMethod -Uri "$BaseUrl/secure/dll/search-order?fullPath=$([uri]::EscapeDataString($DemoDll))" -Method Get
 
 try {
@@ -220,6 +264,10 @@ Resultat attendu:
 
 Objectif: inventorier les defenses runtime et verifier l'integrite de l'assembly.
 
+Code source a observer:
+- `00/SecurityFoundationsLab/Program.cs:75`
+- `00/SecurityFoundationsLab/Program.cs:250`
+
 ```powershell
 $BaseUrl = 'http://localhost:5100'
 Invoke-RestMethod -Uri "$BaseUrl/runtime/protections" -Method Get
@@ -234,6 +282,10 @@ Resultat attendu:
 ## Etape 12 - Cartographier les mitigations processus Windows
 
 Objectif: voir les mitigations effectives du processus en execution.
+
+Code source a observer:
+- `00/SecurityFoundationsLab/Program.cs:75`
+- `00/SecurityFoundationsLab/Program.cs:182`
 
 ```powershell
 Get-Process -Name SecurityFoundationsLab
@@ -266,7 +318,7 @@ Resultat attendu:
 - Si `Connection refused`, verifier que l'API tourne sur `http://localhost:5100`.
 - Si `Get-ProcessMitigation` ne retourne rien, verifier le nom du processus avec `Get-Process`.
 - Si le chemin `safe-demo.dll` est introuvable, lancer au moins une fois l'API puis relancer l'etape 10.
-- Si `dotnet run` sur la demo stack overflow echoue, verifier que `net9.0` est installe.
+- Si `dotnet run` sur la demo stack overflow echoue, verifier que `net10.0` est installe.
 
 ## Nettoyage / Reset
 
@@ -274,7 +326,7 @@ Resultat attendu:
 # Dans le terminal API
 # Ctrl+C
 
-if\ \(Test-Path\ \.\00\)\ \{\ Set-Location\ \.\00\ }
+if (Test-Path .\00) { Set-Location .\00 }
 dotnet clean .\Atelier00.slnx
 Remove-Item -Recurse -Force .\tmp -ErrorAction SilentlyContinue
 ```
@@ -301,5 +353,9 @@ flowchart TD
     C --> D[AuthN AuthZ Chiffrement]
     D --> E[Monitoring et reponse]
 ```
+
+
+
+
 
 
