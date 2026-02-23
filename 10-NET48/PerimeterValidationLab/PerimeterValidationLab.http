@@ -1,0 +1,44 @@
+@PerimeterValidationLab_HostAddress = http://localhost:5176
+
+GET {{PerimeterValidationLab_HostAddress}}/
+Accept: application/json
+
+###
+
+GET {{PerimeterValidationLab_HostAddress}}/vuln/links/reset-password?user=alice
+X-Forwarded-Host: evil.example
+X-Forwarded-Proto: http
+Accept: application/json
+
+###
+
+GET {{PerimeterValidationLab_HostAddress}}/secure/links/reset-password?user=alice
+Host: app.contoso.local
+Accept: application/json
+
+###
+
+GET {{PerimeterValidationLab_HostAddress}}/secure/links/reset-password?user=alice
+X-Forwarded-Host: evil.example
+X-Forwarded-Proto: http
+Accept: application/json
+
+###
+
+GET {{PerimeterValidationLab_HostAddress}}/vuln/tenant/home
+X-Forwarded-Host: evil.example
+Accept: application/json
+
+###
+
+GET {{PerimeterValidationLab_HostAddress}}/secure/tenant/home
+Host: app.contoso.local
+Accept: application/json
+
+###
+
+GET {{PerimeterValidationLab_HostAddress}}/secure/diagnostics/request-meta
+Host: app.contoso.local
+Accept: application/json
+
+###

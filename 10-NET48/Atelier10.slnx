@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="PerimeterValidationLab.Tests/PerimeterValidationLab.Tests.csproj" />
+  <Project Path="PerimeterValidationLab/PerimeterValidationLab.csproj" />
+</Solution>

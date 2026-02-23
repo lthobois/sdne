@@ -1,0 +1,6 @@
+@SecurityFoundationsLab_HostAddress = http://localhost:5252
+
+GET {{SecurityFoundationsLab_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

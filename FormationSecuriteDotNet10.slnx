@@ -1,0 +1,44 @@
+<Solution>
+  <Folder Name="/00-NET10/">
+    <Project Path="00-NET10/SecurityFoundationsLab/SecurityFoundationsLab.csproj" />
+  </Folder>
+  <Folder Name="/00-NET10/samples/">
+    <Project Path="00-NET10/samples/StackOverflowDemo/StackOverflowDemo.csproj" />
+  </Folder>
+  <Folder Name="/01-NET10/">
+    <Project Path="01-NET10/BasicAuthWorkshop/BasicAuthWorkshop.csproj" />
+  </Folder>
+  <Folder Name="/02-NET10/">
+    <Project Path="02-NET10/AppSecWorkshop02/AppSecWorkshop02.csproj" />
+  </Folder>
+  <Folder Name="/03-NET10/">
+    <Project Path="03-NET10/AppSecWorkshop03/AppSecWorkshop03.csproj" />
+  </Folder>
+  <Folder Name="/04-NET10/">
+    <Project Path="04-NET10/AppSecWorkshop04/AppSecWorkshop04.csproj" />
+  </Folder>
+  <Folder Name="/05-NET10/">
+    <Project Path="05-NET10/SecurityValidationLab.Tests/SecurityValidationLab.Tests.csproj" />
+    <Project Path="05-NET10/SecurityValidationLab/SecurityValidationLab.csproj" />
+  </Folder>
+  <Folder Name="/06-NET10/">
+    <Project Path="06-NET10/SupplyChainSecurityLab.Tests/SupplyChainSecurityLab.Tests.csproj" />
+    <Project Path="06-NET10/SupplyChainSecurityLab/SupplyChainSecurityLab.csproj" />
+  </Folder>
+  <Folder Name="/07-NET10/">
+    <Project Path="07-NET10/ExposureDefenseLab.Tests/ExposureDefenseLab.Tests.csproj" />
+    <Project Path="07-NET10/ExposureDefenseLab/ExposureDefenseLab.csproj" />
+  </Folder>
+  <Folder Name="/08-NET10/">
+    <Project Path="08-NET10/SecurityMonitoringLab.Tests/SecurityMonitoringLab.Tests.csproj" />
+    <Project Path="08-NET10/SecurityMonitoringLab/SecurityMonitoringLab.csproj" />
+  </Folder>
+  <Folder Name="/09-NET10/">
+    <Project Path="09-NET10/AuthzHardeningLab.Tests/AuthzHardeningLab.Tests.csproj" />
+    <Project Path="09-NET10/AuthzHardeningLab/AuthzHardeningLab.csproj" />
+  </Folder>
+  <Folder Name="/10-NET10/">
+    <Project Path="10-NET10/PerimeterValidationLab.Tests/PerimeterValidationLab.Tests.csproj" />
+    <Project Path="10-NET10/PerimeterValidationLab/PerimeterValidationLab.csproj" />
+  </Folder>
+</Solution>

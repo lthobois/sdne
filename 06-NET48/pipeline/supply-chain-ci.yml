@@ -1,0 +1,46 @@
+﻿name: Supply Chain CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-test-sca:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 06-NET48
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Restore
+        run: dotnet restore ./Atelier06.slnx
+
+      - name: Build
+        run: dotnet build ./Atelier06.slnx --no-restore
+
+      - name: Test
+        run: dotnet test ./Atelier06.slnx --no-build --verbosity normal
+
+      - name: Vulnerable Packages
+        run: |
+          dotnet list ./SupplyChainSecurityLab/SupplyChainSecurityLab.csproj package --vulnerable --include-transitive
+          dotnet list ./SupplyChainSecurityLab.Tests/SupplyChainSecurityLab.Tests.csproj package --vulnerable --include-transitive
+
+      - name: Simple Secret Scan
+        run: |
+          if grep -R "hardcoded-api-key" -n ./SupplyChainSecurityLab; then
+            echo "Potential hardcoded secret found"
+            exit 1
+          fi
+
+
+

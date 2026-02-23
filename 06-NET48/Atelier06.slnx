@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="SupplyChainSecurityLab.Tests/SupplyChainSecurityLab.Tests.csproj" />
+  <Project Path="SupplyChainSecurityLab/SupplyChainSecurityLab.csproj" />
+</Solution>

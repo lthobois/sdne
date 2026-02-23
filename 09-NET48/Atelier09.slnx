@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="AuthzHardeningLab.Tests/AuthzHardeningLab.Tests.csproj" />
+  <Project Path="AuthzHardeningLab/AuthzHardeningLab.csproj" />
+</Solution>

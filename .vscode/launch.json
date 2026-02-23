@@ -1,4 +1,4 @@
-{
+﻿{
   "version": "0.2.0",
   "configurations": [
     {
@@ -6,9 +6,9 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/01/BasicAuthWorkshop/bin/Debug/net10.0/BasicAuthWorkshop.dll",
+      "program": "${workspaceFolder}/01-NET10/BasicAuthWorkshop/bin/Debug/net10.0/BasicAuthWorkshop.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/01/BasicAuthWorkshop",
+      "cwd": "${workspaceFolder}/01-NET10/BasicAuthWorkshop",
       "stopAtEntry": false,
       "console": "integratedTerminal",
       "env": {
@@ -20,9 +20,9 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/02/AppSecWorkshop02/bin/Debug/net10.0/AppSecWorkshop02.dll",
+      "program": "${workspaceFolder}/02-NET10/AppSecWorkshop02/bin/Debug/net10.0/AppSecWorkshop02.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/02/AppSecWorkshop02",
+      "cwd": "${workspaceFolder}/02-NET10/AppSecWorkshop02",
       "stopAtEntry": false,
       "console": "integratedTerminal",
       "env": {
@@ -34,9 +34,9 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/03/AppSecWorkshop03/bin/Debug/net10.0/AppSecWorkshop03.dll",
+      "program": "${workspaceFolder}/03-NET10/AppSecWorkshop03/bin/Debug/net10.0/AppSecWorkshop03.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/03/AppSecWorkshop03",
+      "cwd": "${workspaceFolder}/03-NET10/AppSecWorkshop03",
       "stopAtEntry": false,
       "console": "integratedTerminal",
       "env": {
@@ -48,9 +48,9 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/04/AppSecWorkshop04/bin/Debug/net10.0/AppSecWorkshop04.dll",
+      "program": "${workspaceFolder}/04-NET10/AppSecWorkshop04/bin/Debug/net10.0/AppSecWorkshop04.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/04/AppSecWorkshop04",
+      "cwd": "${workspaceFolder}/04-NET10/AppSecWorkshop04",
       "stopAtEntry": false,
       "console": "integratedTerminal",
       "env": {
@@ -62,9 +62,9 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/05/SecurityValidationLab/bin/Debug/net10.0/SecurityValidationLab.dll",
+      "program": "${workspaceFolder}/05-NET10/SecurityValidationLab/bin/Debug/net10.0/SecurityValidationLab.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/05/SecurityValidationLab",
+      "cwd": "${workspaceFolder}/05-NET10/SecurityValidationLab",
       "stopAtEntry": false,
       "console": "integratedTerminal",
       "env": {
@@ -76,9 +76,9 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/06/SupplyChainSecurityLab/bin/Debug/net10.0/SupplyChainSecurityLab.dll",
+      "program": "${workspaceFolder}/06-NET10/SupplyChainSecurityLab/bin/Debug/net10.0/SupplyChainSecurityLab.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/06/SupplyChainSecurityLab",
+      "cwd": "${workspaceFolder}/06-NET10/SupplyChainSecurityLab",
       "stopAtEntry": false,
       "console": "integratedTerminal",
       "env": {
@@ -90,9 +90,9 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/07/ExposureDefenseLab/bin/Debug/net10.0/ExposureDefenseLab.dll",
+      "program": "${workspaceFolder}/07-NET10/ExposureDefenseLab/bin/Debug/net10.0/ExposureDefenseLab.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/07/ExposureDefenseLab",
+      "cwd": "${workspaceFolder}/07-NET10/ExposureDefenseLab",
       "stopAtEntry": false,
       "console": "integratedTerminal",
       "env": {
@@ -104,9 +104,9 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/08/SecurityMonitoringLab/bin/Debug/net10.0/SecurityMonitoringLab.dll",
+      "program": "${workspaceFolder}/08-NET10/SecurityMonitoringLab/bin/Debug/net10.0/SecurityMonitoringLab.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/08/SecurityMonitoringLab",
+      "cwd": "${workspaceFolder}/08-NET10/SecurityMonitoringLab",
       "stopAtEntry": false,
       "console": "integratedTerminal",
       "env": {
@@ -118,9 +118,9 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/09/AuthzHardeningLab/bin/Debug/net10.0/AuthzHardeningLab.dll",
+      "program": "${workspaceFolder}/09-NET10/AuthzHardeningLab/bin/Debug/net10.0/AuthzHardeningLab.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/09/AuthzHardeningLab",
+      "cwd": "${workspaceFolder}/09-NET10/AuthzHardeningLab",
       "stopAtEntry": false,
       "console": "integratedTerminal",
       "env": {
@@ -132,9 +132,9 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/10/PerimeterValidationLab/bin/Debug/net10.0/PerimeterValidationLab.dll",
+      "program": "${workspaceFolder}/10-NET10/PerimeterValidationLab/bin/Debug/net10.0/PerimeterValidationLab.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/10/PerimeterValidationLab",
+      "cwd": "${workspaceFolder}/10-NET10/PerimeterValidationLab",
       "stopAtEntry": false,
       "console": "integratedTerminal",
       "env": {
@@ -143,4 +143,5 @@
     }
   ]
 }
+
 

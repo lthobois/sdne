@@ -1,11 +1,11 @@
-# Annexes Techniques - Exemples complementaires
+﻿# Annexes Techniques - Exemples complementaires
 
 Ce document regroupe des exemples complementaires relies aux ateliers.
 Il peut etre utilise comme reference rapide pendant et apres la formation.
 
 ## Positionnement
 
-- Les ateliers du depot ciblent principalement `ASP.NET Core / .NET 9`.
+- Les ateliers du depot ciblent principalement `ASP.NET Core / .NET 10`.
 - Certains exemples ci-dessous utilisent des API historiques de `.NET Framework`.
 - Pour les projets modernes, privilegier les alternatives actuelles quand elles existent.
 
@@ -37,8 +37,8 @@ Controles recommandes:
 
 Reference atelier:
 
-- `03` (attaques avancees)
-- `08` (monitoring et alerting)
+- `03-NET10` (attaques avancees)
+- `08-NET10` (monitoring et alerting)
 
 ## 2) Securite du framework .NET - exemples
 
@@ -79,19 +79,19 @@ Verifier le resultat avec un compte de test non admin.
 Pour projets modernes, utiliser la validation JWT standard dans ASP.NET Core.
 Reference pratique dans ce depot:
 
-- `09` (`AuthzHardeningLab`) pour token signe, scopes et controle d'acces objet.
+- `09-NET10` (`AuthzHardeningLab`) pour token signe, scopes et controle d'acces objet.
 
 ## 3) Deploiement conteneur
 
 Reference pratique:
 
-- `10/infra/docker-compose.yml`
-- `10/infra/nginx.conf`
+- `10-NET10/infra/docker-compose.yml`
+- `10-NET10/infra/nginx.conf`
 
 Workflow minimal:
 
 ```powershell
-cd .\10\infra
+cd .\10-NET10\infra
 docker compose up --build
 ```
 
@@ -107,7 +107,7 @@ La regle principale: ne jamais journaliser les secrets en clair (password, token
 
 Reference pratique:
 
-- `08` (audit + correlation + alerting)
+- `08-NET10` (audit + correlation + alerting)
 
 Exemple de sanitization:
 
@@ -134,8 +134,8 @@ Artifacts typiques:
 
 Reference atelier:
 
-- `04` (secure code)
-- `06` (gestion des secrets)
+- `04-NET10` (secure code)
+- `06-NET10` (gestion des secrets)
 
 ## 6) Chiffrement fichier avec File.Encrypt
 
@@ -154,7 +154,7 @@ Verifier:
 
 Reference pratique:
 
-- `01` (`BasicAuthWorkshop`)
+- `01-NET10` (`BasicAuthWorkshop`)
 
 Rappel:
 
@@ -172,13 +172,15 @@ Invoke-RestMethod -Uri "http://localhost:5098/secure/profile" -Headers @{ Author
 
 ## Mapping rapide vers les ateliers
 
-- Auth Basic: `01`
-- Failles web OWASP (SQLi/XSS/CSRF/SSRF): `02`
-- Session/deserialization/IDOR: `03`
-- Secure code et hardening: `04`
-- Tests securite automatisee: `05`
-- Supply chain et secrets: `06`
-- Reduction surface exposition: `07`
-- Monitoring securite: `08`
-- AuthN/AuthZ avancees: `09`
-- Perimetre, proxy, DMZ, header injection: `10`
+- Auth Basic: `01-NET10`
+- Failles web OWASP (SQLi/XSS/CSRF/SSRF): `02-NET10`
+- Session/deserialization/IDOR: `03-NET10`
+- Secure code et hardening: `04-NET10`
+- Tests securite automatisee: `05-NET10`
+- Supply chain et secrets: `06-NET10`
+- Reduction surface exposition: `07-NET10`
+- Monitoring securite: `08-NET10`
+- AuthN/AuthZ avancees: `09-NET10`
+- Perimetre, proxy, DMZ, header injection: `10-NET10`
+
+
