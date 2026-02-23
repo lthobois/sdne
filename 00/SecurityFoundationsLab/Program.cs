@@ -23,36 +23,19 @@ if (!File.Exists(trustedDllPlaceholder))
 app.MapGet("/", () => Results.Ok(new
 {
     workshop = "Atelier 00 - Rappels securite applicative .NET",
-    agenda = new[]
+    demos = new[]
     {
-        "Pile d'execution: stack vs heap",
-        "SAST et DAST",
-        "Hijacking de ressources",
-        "Protections runtime (DEP, ASLR, CFG, signatures)",
-        "Secure by design dans le cycle de vie"
+        "/runtime/stack-depth",
+        "/vuln/clickjacking/page",
+        "/secure/clickjacking/page",
+        "/vuln/session/login",
+        "/secure/session/login",
+        "/vuln/resource/cpu",
+        "/secure/resource/cpu",
+        "/vuln/dll/search-order",
+        "/secure/dll/search-order",
+        "/secure/assembly/integrity"
     }
-}));
-
-app.MapGet("/security/lifecycle", () => Results.Ok(new
-{
-    phases = new[]
-    {
-        "Analyse (modele de menace)",
-        "Conception (ASVS, secure design)",
-        "Developpement (SAST, bonnes pratiques)",
-        "Test (DAST, pentest)",
-        "Deploiement (hardening)",
-        "Exploitation (logs, alertes, patching)"
-    },
-    shiftLeft = true,
-    knownVulnsMajorRisk = true
-}));
-
-app.MapGet("/runtime/stack-vs-heap", () => Results.Ok(new
-{
-    stack = "Appels de fonctions et variables locales (LIFO)",
-    heap = "Allocation dynamique (objets via new)",
-    note = "En .NET, StackOverflowException provoque l'arret du processus."
 }));
 
 app.MapGet("/runtime/stack-depth", (int depth) =>
@@ -72,33 +55,6 @@ app.MapGet("/runtime/stack-depth", (int depth) =>
     });
 });
 
-app.MapGet("/runtime/protections", () => Results.Ok(new
-{
-    protections = new[]
-    {
-        "DEP / NX",
-        "ASLR",
-        "Control Flow Guard",
-        "SafeSEH (binaire natif)",
-        "Strong name et Authenticode"
-    },
-    important = "Ces protections completent le code securise, elles ne le remplacent pas."
-}));
-
-app.MapGet("/analysis/sast-dast", () => Results.Ok(new
-{
-    sast = new
-    {
-        description = "Analyse statique du code sans execution",
-        examples = new[] { "Roslyn Analyzers", "SonarQube", "Checkmarx" }
-    },
-    dast = new
-    {
-        description = "Tests dynamiques boite noire en execution",
-        examples = new[] { "OWASP ZAP", "Burp Suite" }
-    },
-    message = "SAST et DAST sont complementaires."
-}));
 
 app.MapGet("/vuln/clickjacking/page", () =>
 {

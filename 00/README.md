@@ -1,7 +1,6 @@
 # Atelier 00 - Rappels securite applicative .NET
 
-Cet atelier pose les bases techniques utilisees dans tous les autres ateliers.
-Il couvre la pile d'execution, l'analyse de code, le hijacking de ressources, les overflows et les protections runtime.
+Cet atelier conserve uniquement les demonstrations avec comportement observable dans le code (pas de endpoints purement descriptifs).
 
 ## Pre-requis
 
@@ -14,13 +13,13 @@ Il couvre la pile d'execution, l'analyse de code, le hijacking de ressources, le
 Verification de l'environnement:
 
 ```powershell
-`$PSVersionTable.PSVersion
+$PSVersionTable.PSVersion
 dotnet --version
 ```
 
 Resultat attendu:
 
-- `pwsh` >= 5
+- `PowerShell` >= 5.1
 - `dotnet` commence par `10.`
 
 ## Etape 1 - Initialiser l'atelier
@@ -39,9 +38,9 @@ dotnet build .\Atelier00.slnx
 
 Resultat attendu: build reussi sans erreur.
 
-## Etape 2 - Lancer l'API de rappel securite
+## Etape 2 - Lancer l'API de demo
 
-Objectif: demarrer l'API locale pour les demonstrations `vuln` vs `secure`.
+Objectif: demarrer l'API locale.
 
 Code source a observer:
 - `00/SecurityFoundationsLab/Program.cs:10`
@@ -54,171 +53,94 @@ dotnet run --project .\SecurityFoundationsLab\SecurityFoundationsLab.csproj --ur
 
 Resultat attendu: message `Now listening on: http://localhost:5100`.
 
-## Etape 3 - Verifier l'agenda et le cycle de vie securite
+## Etape 3 - Stack: recursion controlee
 
-Objectif: visualiser l'approche secure-by-design et shift-left.
+Objectif: observer la croissance de pile sans crash.
 
 Code source a observer:
-- `00/SecurityFoundationsLab/Program.cs:23`
-- `00/SecurityFoundationsLab/Program.cs:36`
-
-Executer dans un second terminal PowerShell:
+- `00/SecurityFoundationsLab/Program.cs:47`
+- `00/SecurityFoundationsLab/Program.cs:65`
+- `00/SecurityFoundationsLab/Program.cs:213`
 
 ```powershell
 $BaseUrl = 'http://localhost:5100'
-Invoke-RestMethod -Uri "$BaseUrl/" -Method Get
-Invoke-RestMethod -Uri "$BaseUrl/security/lifecycle" -Method Get
-```
-
-Resultat attendu:
-
-- agenda des themes de l'atelier
-- phases du cycle: analyse, conception, developpement, test, deploiement, exploitation
-
-## Etape 4 - Pile d'execution: stack vs heap
-
-Objectif: comprendre la distinction stack/heap et observer une recursion controlee.
-
-Code source a observer:
-- `00/SecurityFoundationsLab/Program.cs:51`
-- `00/SecurityFoundationsLab/Program.cs:58`
-- `00/SecurityFoundationsLab/Program.cs:266`
-
-```powershell
-$BaseUrl = 'http://localhost:5100'
-Invoke-RestMethod -Uri "$BaseUrl/runtime/stack-vs-heap" -Method Get
 Invoke-RestMethod -Uri "$BaseUrl/runtime/stack-depth?depth=20" -Method Get
+Invoke-RestMethod -Uri "$BaseUrl/runtime/stack-depth?depth=120" -Method Get
 ```
 
-Resultat attendu:
+Resultat attendu: `observedFrames` augmente avec `depth`.
 
-- rappel stack vs heap
-- demonstration de pile avec profondeur limitee
+## Etape 4 - StackOverflowException en processus isole
 
-## Etape 5 - Observer StackOverflowException dans un processus isole
-
-Objectif: constater qu'un stack overflow arrete brutalement le processus.
+Objectif: constater l'arret brutal d'un processus sur recursion infinie.
 
 Code source a observer:
 - `00/samples/StackOverflowDemo/Program.cs:5`
 - `00/samples/StackOverflowDemo/Program.cs:11`
 
-1. Creer un mini programme de test.
-
 ```powershell
-if (Test-Path .\00) { Set-Location .\00 }
-New-Item -ItemType Directory -Force .\tmp\StackOverflowDemo | Out-Null
-@"
-using System;
-
-static class Program
-{
-    static void Recursive() => Recursive();
-
-    static void Main()
-    {
-        Console.WriteLine("Debut recursion infinie...");
-        Recursive();
-    }
-}
-"@ | Set-Content .\tmp\StackOverflowDemo\Program.cs
-```
-
-2. Creer le projet puis executer dans un processus dedie.
-
-```powershell
-if (Test-Path .\00\tmp\StackOverflowDemo) { Set-Location .\00\tmp\StackOverflowDemo } elseif (Test-Path .\tmp\StackOverflowDemo) { Set-Location .\tmp\StackOverflowDemo }
-@"
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-</Project>
-"@ | Set-Content .\StackOverflowDemo.csproj
-
+if (Test-Path .\00\samples\StackOverflowDemo) { Set-Location .\00\samples\StackOverflowDemo } elseif (Test-Path .\samples\StackOverflowDemo) { Set-Location .\samples\StackOverflowDemo }
 dotnet run
 ```
 
 Resultat attendu:
+- le processus termine avec `StackOverflowException`
+- pas de recuperation possible via `try/catch`
 
-- le processus se termine brutalement avec `StackOverflowException`
-- exception non recuperable par `try/catch`
+## Etape 5 - Clickjacking: comparer vuln vs secure
 
-## Etape 6 - SAST (analyse statique)
-
-Objectif: executer des controles statiques reproductibles.
-
-Code source a observer:
-- `00/SecurityFoundationsLab/SecurityFoundationsLab.csproj:4`
-- `00/SecurityFoundationsLab/Program.cs:88`
-
-```powershell
-if (Test-Path .\00) { Set-Location .\00 }
-dotnet build .\SecurityFoundationsLab\SecurityFoundationsLab.csproj -warnaserror
-dotnet list .\SecurityFoundationsLab\SecurityFoundationsLab.csproj package --vulnerable
-```
-
-Resultat attendu:
-
-- build stricte sans warning
-- rapport des packages vulnerables (si none, signalement propre)
-
-## Etape 7 - DAST (analyse dynamique)
-
-Objectif: simuler des tests boite noire sur endpoints exposes.
+Objectif: verifier l'ajout des en-tetes de protection.
 
 Code source a observer:
-- `00/SecurityFoundationsLab/Program.cs:88`
-- `00/SecurityFoundationsLab/Program.cs:103`
-- `00/SecurityFoundationsLab/Program.cs:109`
+- `00/SecurityFoundationsLab/Program.cs:71`
+- `00/SecurityFoundationsLab/Program.cs:77`
 
 ```powershell
 $BaseUrl = 'http://localhost:5100'
-Invoke-RestMethod -Uri "$BaseUrl/analysis/sast-dast" -Method Get
 
-Invoke-WebRequest -Uri "$BaseUrl/vuln/clickjacking/page" -Method Get | Select-Object StatusCode
-Invoke-WebRequest -Uri "$BaseUrl/secure/clickjacking/page" -Method Get | Select-Object StatusCode,Headers
+$vuln = Invoke-WebRequest -Uri "$BaseUrl/vuln/clickjacking/page" -Method Get
+$secure = Invoke-WebRequest -Uri "$BaseUrl/secure/clickjacking/page" -Method Get
+
+$vuln.Headers['X-Frame-Options']
+$secure.Headers['X-Frame-Options']
+$secure.Headers['Content-Security-Policy']
 ```
 
 Resultat attendu:
+- `vuln`: en-tetes absents
+- `secure`: `X-Frame-Options: DENY` + CSP `frame-ancestors 'none'`
 
-- endpoint `secure/clickjacking/page` retourne des en-tetes anti-clickjacking
+## Etape 6 - Session hijacking: attributs cookie
 
-## Etape 8 - Session hijacking: comparer cookie vuln vs secure
-
-Objectif: observer les attributs de cookie de session.
+Objectif: comparer la creation de session vuln/secure.
 
 Code source a observer:
-- `00/SecurityFoundationsLab/Program.cs:118`
-- `00/SecurityFoundationsLab/Program.cs:136`
+- `00/SecurityFoundationsLab/Program.cs:86`
+- `00/SecurityFoundationsLab/Program.cs:104`
 
 ```powershell
 $BaseUrl = 'http://localhost:5100'
 $body = @{ username = 'alice' } | ConvertTo-Json
 
 $vuln = Invoke-WebRequest -Uri "$BaseUrl/vuln/session/login" -Method Post -ContentType 'application/json' -Body $body
-$vuln.Headers['Set-Cookie']
-
 $secure = Invoke-WebRequest -Uri "$BaseUrl/secure/session/login" -Method Post -ContentType 'application/json' -Body $body
+
+$vuln.Headers['Set-Cookie']
 $secure.Headers['Set-Cookie']
 ```
 
 Resultat attendu:
+- `vuln`: cookie permissif
+- `secure`: `HttpOnly`, `Secure`, `SameSite=Strict`
 
-- cookie `vuln`: sans `HttpOnly`/`Secure` robustes
-- cookie `secure`: `HttpOnly`, `Secure`, `SameSite=Strict`
+## Etape 7 - Hijacking de ressources CPU
 
-## Etape 9 - Hijacking de ressources (CPU)
-
-Objectif: comparer consommation non limitee et controlee.
+Objectif: comparer charge non limitee et charge gouvernee.
 
 Code source a observer:
-- `00/SecurityFoundationsLab/Program.cs:154`
-- `00/SecurityFoundationsLab/Program.cs:175`
-- `00/SecurityFoundationsLab/Program.cs:278`
+- `00/SecurityFoundationsLab/Program.cs:122`
+- `00/SecurityFoundationsLab/Program.cs:143`
+- `00/SecurityFoundationsLab/Program.cs:225`
 
 ```powershell
 $BaseUrl = 'http://localhost:5100'
@@ -227,24 +149,22 @@ Invoke-RestMethod -Uri "$BaseUrl/secure/resource/cpu?seconds=2" -Method Get
 ```
 
 Resultat attendu:
+- `vuln`: accepte des durees plus larges
+- `secure`: duree restreinte + throttling (`429` si surcharge)
 
-- `vuln` accepte facilement la charge
-- `secure` applique quotas et limites
+## Etape 8 - DLL hijacking: chemin non fiable vs chemin de confiance
 
-## Etape 10 - DLL hijacking: chemin non fiable vs chemin restreint
-
-Objectif: verifier la validation de chemin et de repertoire de confiance.
+Objectif: verifier la validation de chemin absolu et de repertoire de confiance.
 
 Code source a observer:
-- `00/SecurityFoundationsLab/Program.cs:208`
-- `00/SecurityFoundationsLab/Program.cs:222`
+- `00/SecurityFoundationsLab/Program.cs:176`
+- `00/SecurityFoundationsLab/Program.cs:190`
 - `00/SecurityFoundationsLab/Program.cs:15`
 
 ```powershell
 $BaseUrl = 'http://localhost:5100'
 Invoke-RestMethod -Uri "$BaseUrl/vuln/dll/search-order?dllName=crypto.dll" -Method Get
 
-# Construire un chemin absolu vers la DLL de demonstration creee par l'application
 $DemoDll = Join-Path (Resolve-Path .\00\SecurityFoundationsLab\bin\Debug\net10.0).Path 'trusted-dll\safe-demo.dll'
 Invoke-RestMethod -Uri "$BaseUrl/secure/dll/search-order?fullPath=$([uri]::EscapeDataString($DemoDll))" -Method Get
 
@@ -256,36 +176,52 @@ try {
 ```
 
 Resultat attendu:
+- `vuln`: resolution basee sur environnement/PATH
+- `secure`: refuse DLL hors `trusted-dll`
 
-- mode `vuln`: dependant de l'environnement/PATH
-- mode `secure`: accepte uniquement chemin absolu dans repertoire de confiance
+## Etape 9 - Integrite assembly
 
-## Etape 11 - Protections runtime et integrite assembly
-
-Objectif: inventorier les defenses runtime et verifier l'integrite de l'assembly.
+Objectif: observer des metadonnees d'integrite de l'assembly charge.
 
 Code source a observer:
-- `00/SecurityFoundationsLab/Program.cs:75`
-- `00/SecurityFoundationsLab/Program.cs:250`
+- `00/SecurityFoundationsLab/Program.cs:218`
 
 ```powershell
 $BaseUrl = 'http://localhost:5100'
-Invoke-RestMethod -Uri "$BaseUrl/runtime/protections" -Method Get
 Invoke-RestMethod -Uri "$BaseUrl/secure/assembly/integrity" -Method Get
 ```
 
 Resultat attendu:
+- nom/version de l'assembly
+- indicateur `hasPublicKeyToken`
 
-- liste DEP/ASLR/CFG/SafeSEH/Signatures
-- metadonnees assembly et indicateur de token de cle publique
+## Etape 10 - SAST et DAST appliques a cette API
 
-## Etape 12 - Cartographier les mitigations processus Windows
-
-Objectif: voir les mitigations effectives du processus en execution.
+Objectif: executer des controles statiques et dynamiques sur le module.
 
 Code source a observer:
-- `00/SecurityFoundationsLab/Program.cs:75`
-- `00/SecurityFoundationsLab/Program.cs:182`
+- `00/SecurityFoundationsLab/Program.cs:71`
+- `00/SecurityFoundationsLab/Program.cs:122`
+
+```powershell
+if (Test-Path .\00) { Set-Location .\00 }
+dotnet build .\SecurityFoundationsLab\SecurityFoundationsLab.csproj -warnaserror
+
+$BaseUrl = 'http://localhost:5100'
+Invoke-WebRequest -Uri "$BaseUrl/secure/clickjacking/page" -Method Get | Select-Object StatusCode,Headers
+Invoke-RestMethod -Uri "$BaseUrl/secure/resource/cpu?seconds=2" -Method Get
+```
+
+Resultat attendu:
+- build stricte reussie
+- checks runtime reussis sur endpoints secure
+
+## Etape 11 - Mitigations processus Windows
+
+Objectif: inspecter les mitigations actives du processus.
+
+Code source a observer:
+- `00/SecurityFoundationsLab/Program.cs:143`
 
 ```powershell
 Get-Process -Name SecurityFoundationsLab
@@ -293,32 +229,18 @@ Get-ProcessMitigation -Name SecurityFoundationsLab
 ```
 
 Resultat attendu:
-
-- presence des politiques de mitigation (DEP, ASLR, CFG selon environnement)
-
-## Comparatif SAST vs DAST
-
-| Critere | SAST | DAST |
-|---|---|---|
-| Moment | Pendant le developpement | Sur application en execution |
-| Source d'analyse | Code source / binaire | Requetes HTTP / comportement |
-| Forces | Detection precoce, couverture large | Detection runtime, configuration et flux reels |
-| Limites | Faux positifs possibles | Couverture limitee aux cas testes |
-| Usage recommande | CI/CD a chaque commit | Campagnes regulieres pre-prod et prod controlee |
+- etat des mitigations (DEP/ASLR/CFG selon OS et configuration)
 
 ## Verifications
 
-- Les endpoints `vuln/*` exposent des anti-patterns controlables.
-- Les endpoints `secure/*` appliquent des contre-mesures explicites.
-- Le cycle de vie securite est visible via `/security/lifecycle`.
-- Les tests SAST/DAST locaux sont reproductibles.
+- Chaque endpoint conserve produit un effet observable (headers, cookies, throttling, validation, metadonnees).
+- Aucun endpoint de simple restitution theorique n'est utilise dans le parcours.
 
 ## Depannage
 
 - Si `Connection refused`, verifier que l'API tourne sur `http://localhost:5100`.
-- Si `Get-ProcessMitigation` ne retourne rien, verifier le nom du processus avec `Get-Process`.
-- Si le chemin `safe-demo.dll` est introuvable, lancer au moins une fois l'API puis relancer l'etape 10.
-- Si `dotnet run` sur la demo stack overflow echoue, verifier que `net10.0` est installe.
+- Si `safe-demo.dll` est introuvable, lancer l'API une fois puis relancer l'etape 8.
+- Si `Get-ProcessMitigation` ne retourne rien, verifier le nom via `Get-Process`.
 
 ## Nettoyage / Reset
 
@@ -328,34 +250,15 @@ Resultat attendu:
 
 if (Test-Path .\00) { Set-Location .\00 }
 dotnet clean .\Atelier00.slnx
-Remove-Item -Recurse -Force .\tmp -ErrorAction SilentlyContinue
 ```
 
-## Diagrammes Mermaid
-
-Cycle de vie securite:
-
-```mermaid
-flowchart LR
-    A[Analyse: threat model] --> B[Conception: ASVS secure design]
-    B --> C[Developpement: SAST + bonnes pratiques]
-    C --> D[Test: DAST + pentest]
-    D --> E[Deploiement: hardening]
-    E --> F[Exploitation: logs alertes patch]
-```
-
-Defense en profondeur .NET:
+## Diagramme Mermaid
 
 ```mermaid
 flowchart TD
-    A[Code securise] --> B[Runtime CLR + GC + type safety]
-    B --> C[OS mitigations DEP ASLR CFG]
-    C --> D[AuthN AuthZ Chiffrement]
-    D --> E[Monitoring et reponse]
+    A[Runtime stack demo] --> B[Clickjacking headers demo]
+    B --> C[Session cookie hardening demo]
+    C --> D[CPU limiter demo]
+    D --> E[DLL path validation demo]
+    E --> F[Assembly integrity demo]
 ```
-
-
-
-
-
-
