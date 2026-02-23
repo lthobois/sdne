@@ -144,8 +144,8 @@ Code source a observer:
 
 ```powershell
 $BaseUrl = 'http://localhost:5100'
-Invoke-RestMethod -Uri "$BaseUrl/vuln/resource/cpu?seconds=2" -Method Get
-Invoke-RestMethod -Uri "$BaseUrl/secure/resource/cpu?seconds=2" -Method Get
+Invoke-RestMethod -Uri "$BaseUrl/vuln/resource/cpu?seconds=5" -Method Get
+Invoke-RestMethod -Uri "$BaseUrl/secure/resource/cpu?seconds=5" -Method Get
 ```
 
 Resultat attendu:
