@@ -242,11 +242,6 @@ Resultat attendu:
 - `Get-ProcessMitigation -Name ...` peut retourner vide si aucune policy explicite n'est definie pour l'image.
 - Si la cle IFEO est absente, cela confirme l'absence de policy par-image (comportement normal).
 
-## Verifications
-
-- Chaque endpoint conserve produit un effet observable (headers, cookies, throttling, validation, metadonnees).
-- Aucun endpoint de simple restitution theorique n'est utilise dans le parcours.
-
 ## Depannage
 
 - Si `Connection refused`, verifier que l'API tourne sur `http://localhost:5100`.
