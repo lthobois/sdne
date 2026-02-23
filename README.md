@@ -1,86 +1,76 @@
-# Formation Securite des applications .NET - Guide participant
+# Formation Securite .NET - Guide participant
 
-Ce depot contient 10 ateliers pratiques a executer localement.
-Chaque atelier est autonome et fournit:
+Ce depot contient 10 ateliers pratiques. Chaque atelier est autonome, versionne dans son dossier (`01` a `10`) et fournit un mode operatoire pas a pas.
 
-- une application de demonstration
-- des scenarios `vuln/*` et `secure/*`
-- un fichier de requetes HTTP
-- des tests automatises
+## Pre-requis generaux
 
-## Pre-requis
+- Windows 10/11 ou Windows Server recent
+- PowerShell 7+
+- .NET SDK 9.x
+- Visual Studio 2022 ou VS Code (C# Dev Kit)
+- Acces Internet pour restauration NuGet
+- Port HTTP local libre (chaque atelier propose un port dedie)
 
-- .NET SDK 9.0+
-- PowerShell
-- (optionnel) Docker Desktop pour les ateliers avec outils proxy/DAST
-
-Verifier l'environnement:
+Verification rapide:
 
 ```powershell
+pwsh --version
 dotnet --version
 ```
 
-## Structure du depot
+Resultat attendu:
 
-- `01` a `10`: un dossier par atelier
-- chaque dossier contient un `README.md` local
-- certains ateliers incluent `scripts/`, `pipeline/` et `infra/`
+- `pwsh` retourne une version 7.x ou plus
+- `dotnet` retourne `9.x`
 
-## Parcours recommande
+## Ateliers et correspondance programme
 
-Suivre les ateliers dans l'ordre:
+| Atelier | Dossier | Theme principal | Modules couverts |
+|---|---|---|---|
+| 01 | `01` | Authentification HTTP Basic | AuthN, AuthZ role-based |
+| 02 | `02` | Vulns Web OWASP | SQLi, XSS, CSRF, SSRF |
+| 03 | `03` | Attaques avancees | Session theft, deserialisation, IDOR |
+| 04 | `04` | Secure coding | Validation d'entree, path traversal, open redirect, gestion d'erreurs |
+| 05 | `05` | Validation securite continue | Tests de regression, SAST, DAST |
+| 06 | `06` | Securite code externe | Secrets, appels sortants, provenance dependances, SCA/SBOM |
+| 07 | `07` | Limitation exposition | Filtrage WAF-like, admin hardening, upload validation, rate limiting |
+| 08 | `08` | Monitoring securite | Audit trail, correlation id, alerting, logs securises |
+| 09 | `09` | Durcissement AuthN/AuthZ | Integrite de token, scopes, autorisation objet |
+| 10 | `10` | Validation perimetrique | Headers forwarded, confiance proxy, surface perimetre |
 
-1. `01` - Authentification HTTP Basic et controles d'acces
-2. `02` - SQLi, XSS, CSRF, SSRF
-3. `03` - Vol de session, deserialisation, IDOR
-4. `04` - Secure code: validation, traversal, redirect, erreurs, headers
-5. `05` - Tests de securite automatises (regression, SAST/DAST)
-6. `06` - Securite supply chain: dependances, secrets, SBOM
-7. `07` - Limitation de surface d'exposition (filtrage, rate limit, upload)
-8. `08` - Monitoring securite: correlation, audit, alerting
-9. `09` - AuthN/AuthZ avancees: token signe, scopes, BOLA/IDOR
-10. `10` - Validation perimetrique: header injection, proxy, DMZ
+## Convention de travail (commune a tous les ateliers)
 
-## Methode de travail (par atelier)
+1. Ouvrir un terminal PowerShell a la racine du depot.
+2. Se placer dans le dossier atelier.
+3. Restaurer et lancer le projet API avec `dotnet run --urls=...`.
+4. Executer les appels `Invoke-RestMethod` ou `Invoke-WebRequest` des etapes.
+5. Comparer endpoint `vuln` vs `secure`.
+6. Arreter l'API avec `Ctrl+C`.
 
-Depuis la racine du depot:
+## Verifications globales
+
+- Tous les ateliers compilent:
 
 ```powershell
-cd .\0X
-dotnet build .\Atelier0X.slnx
-dotnet test .\Atelier0X.slnx
+dotnet build .\FormationSecuriteDotNet.sln
 ```
 
-Puis lancer l'API:
+- Tous les tests (si presents) passent:
 
 ```powershell
-dotnet run --project .\NomDuProjet\NomDuProjet.csproj
+dotnet test .\FormationSecuriteDotNet.sln
 ```
 
-Executer ensuite les requetes du fichier `*.http` de l'atelier pour comparer les comportements `vuln` et `secure`.
+## Depannage global
 
-## Resultat attendu
+- Erreur de restauration NuGet: verifier proxy/reseau puis relancer `dotnet restore`.
+- Port deja utilise: changer le port dans la commande `dotnet run --urls=...`.
+- Certificats dev HTTPS non configures: utiliser les URLs HTTP proposees dans les READMEs.
 
-A l'issue du parcours, vous disposez d'une base reutilisable pour:
-
-- identifier et reproduire les failles applicatives courantes
-- implementer les contre-mesures dans ASP.NET Core
-- valider les protections via tests automatises
-- integrer des controles de securite dans la CI
-- appliquer des regles de durcissement perimetrique et de monitoring
-
-## Commandes utiles
-
-Executer un atelier complet:
+## Nettoyage global
 
 ```powershell
-cd .\07
-.\scripts\run-defense-checks.ps1
-```
-
-Executer tous les tests d'un atelier:
-
-```powershell
-cd .\10
-dotnet test .\Atelier10.slnx
+dotnet clean .\FormationSecuriteDotNet.sln
+Get-ChildItem -Recurse -Directory -Filter bin | Remove-Item -Recurse -Force
+Get-ChildItem -Recurse -Directory -Filter obj | Remove-Item -Recurse -Force
 ```

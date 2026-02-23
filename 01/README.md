@@ -1,157 +1,127 @@
-# Atelier 01 - Authentification HTTP Basic
-
-## But
-
-Implementer une authentification HTTP Basic, verifier les controles d'acces, puis analyser les limites de ce schema.
+# Atelier 01 - HTTP Basic Auth
 
 ## Pre-requis
 
-- .NET SDK 9+
-- Terminal PowerShell
+- Etre positionne a la racine du depot `sdne`
+- .NET SDK 9.x installe
+- PowerShell 7+
 
-## Demarrage
+## Etape 1 - Initialiser l'atelier
 
-```powershell
-cd .\01\BasicAuthWorkshop
-dotnet run
-```
-
-Conserver l'URL affichee par l'application (ex: `http://localhost:5098`).
-
-## Comptes de test
-
-- `alice / P@ssw0rd!` (role `User`)
-- `bob / Admin123!` (roles `User`, `Admin`)
-
-## Mode operatoire
-
-### Etape 1 - Verifier l'acces public
-
-Action:
-- Appeler la route publique.
-
-Requete:
-```http
-GET /public HTTP/1.1
-Host: localhost
-```
-
-Resultat attendu:
-- `200 OK`
-- message indiquant qu'aucune authentification n'est requise.
-
-Point a observer:
-- Une route publique doit rester explicite et limitee.
-
-### Etape 2 - Verifier le refus sans authentification
-
-Action:
-- Appeler une route protegee sans header `Authorization`.
-
-Requete:
-```http
-GET /secure/profile HTTP/1.1
-Host: localhost
-```
-
-Resultat attendu:
-- `401 Unauthorized`
-- header `WWW-Authenticate: Basic ...`.
-
-Point a observer:
-- Le challenge HTTP indique le schema attendu.
-
-### Etape 3 - Appeler avec des identifiants valides
-
-Action:
-- Encoder `alice:P@ssw0rd!` en Base64.
-
-Commande:
-```powershell
-[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('alice:P@ssw0rd!'))
-```
-
-Requete:
-```http
-GET /secure/profile HTTP/1.1
-Host: localhost
-Authorization: Basic YWxpY2U6UEBzc3cwcmQh
-```
-
-Resultat attendu:
-- `200 OK`
-- identite `alice` et role `User`.
-
-Point a observer:
-- Basic Auth transmet un secret reutilisable a chaque requete.
-
-### Etape 4 - Verifier le controle de role
-
-Action:
-- Tester la route admin avec un utilisateur non admin, puis admin.
-
-Requetes:
-```http
-GET /secure/admin HTTP/1.1
-Host: localhost
-Authorization: Basic YWxpY2U6UEBzc3cwcmQh
-```
-
-```http
-GET /secure/admin HTTP/1.1
-Host: localhost
-Authorization: Basic Ym9iOkFkbWluMTIzIQ==
-```
-
-Resultat attendu:
-- `alice`: `403 Forbidden`
-- `bob`: `200 OK`
-
-Point a observer:
-- L'authentification et l'autorisation sont deux controles distincts.
-
-### Etape 5 - Montrer la faiblesse du schema
-
-Action:
-- Decoder un token Basic capture.
-
-Commande:
-```powershell
-[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('YWxpY2U6UEBzc3cwcmQh'))
-```
-
-Resultat attendu:
-- valeur claire: `alice:P@ssw0rd!`
-
-Point a observer:
-- Base64 n'est pas du chiffrement.
-- Basic Auth est acceptable uniquement avec HTTPS strict.
-
-## Reexecution rapide
-
-- Utiliser `BasicAuthWorkshop.http` pour rejouer toutes les requetes.
-- Relancer `dotnet run` apres modification de code.
-
-## Script PowerShell des appels Web Service
+Objectif: restaurer les dependances et preparer l'execution locale.
 
 ```powershell
-cd .\01
-.\scripts\calls.ps1
+Set-Location .\01
+dotnet restore .\BasicAuthWorkshop\BasicAuthWorkshop.csproj
+```
+
+Resultat attendu: restauration terminee sans erreur.
+
+## Etape 2 - Lancer l'API
+
+Objectif: demarrer le service localement sur un port fixe.
+
+```powershell
+$BaseUrl = 'http://localhost:5101'
+dotnet run --project .\BasicAuthWorkshop\BasicAuthWorkshop.csproj --urls=$BaseUrl
+```
+
+Resultat attendu: message `Now listening on: http://localhost:5101`.
+
+## Etape 3 - Tester endpoint public
+
+Objectif: verifier l'acces anonyme.
+
+Execution dans un second terminal PowerShell (laisser l'API active):
+
+```powershell
+$BaseUrl = 'http://localhost:5101'
+Invoke-RestMethod -Uri "$BaseUrl/public" -Method Get
+```
+
+Resultat attendu: reponse JSON avec `resource = public`.
+
+## Etape 4 - Tester endpoint protege sans authentification
+
+Objectif: observer le refus d'acces.
+
+```powershell
+$BaseUrl = 'http://localhost:5101'
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/profile" -Method Get -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
+```
+
+Resultat attendu: code HTTP `401`.
+
+## Etape 5 - Tester HTTP Basic utilisateur standard
+
+Objectif: acceder a la ressource securisee avec identifiants valides.
+
+```powershell
+$BaseUrl = 'http://localhost:5101'
+$pair = 'analyst:Passw0rd!'
+$token = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
+$headers = @{ Authorization = "Basic $token" }
+Invoke-RestMethod -Uri "$BaseUrl/secure/profile" -Headers $headers -Method Get
+```
+
+Resultat attendu: reponse JSON contenant `user` et `roles`.
+
+## Etape 6 - Tester policy AdminOnly
+
+Objectif: comparer un compte non admin et un compte admin.
+
+```powershell
+$BaseUrl = 'http://localhost:5101'
+
+$tokenUser = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes('analyst:Passw0rd!'))
+$headersUser = @{ Authorization = "Basic $tokenUser" }
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/admin" -Headers $headersUser -Method Get -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
+
+$tokenAdmin = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes('admin:Adm1nPass!'))
+$headersAdmin = @{ Authorization = "Basic $tokenAdmin" }
+Invoke-RestMethod -Uri "$BaseUrl/secure/admin" -Headers $headersAdmin -Method Get
+```
+
+Resultat attendu:
+
+- premier appel: `403`
+- second appel: JSON avec message d'acces admin.
+
+## Verifications
+
+- `401` sans credentials
+- `200` sur `/secure/profile` avec credentials valides
+- `403` puis `200` sur `/secure/admin` selon role
+
+## Depannage
+
+- Si tous les acces renvoient `401`, verifier la valeur de l'en-tete `Authorization`.
+- Si `Connection refused`, verifier que l'API ecoute bien sur `http://localhost:5101`.
+
+## Nettoyage / Reset
+
+```powershell
+# Dans le terminal API
+# Ctrl+C
+
+Set-Location .\01
+dotnet clean .\BasicAuthWorkshop\BasicAuthWorkshop.csproj
 ```
 
 ## Diagramme Mermaid
 
 ```mermaid
-graph TD
-  N1[Client] --> N2[Public endpoint]
-  N1 --> N3[Profile endpoint]
-  N3 --> N4{Basic header present}
-  N4 -- No --> N5[Unauthorized 401]
-  N4 -- Yes --> N6{Credentials valid}
-  N6 -- No --> N5
-  N6 -- Yes --> N7[Authenticated user]
-  N7 --> N8[Admin endpoint]
-  N8 --> N9{Admin role}
-  N9 -- No --> N10[Forbidden 403]
-  N9 -- Yes --> N11[Admin access 200]
+flowchart TD
+    A[Client] --> B[API Atelier 01]
+    B --> C[Public endpoint]
+    B --> D[Secure profile]
+    B --> E[Secure admin role check]
 ```

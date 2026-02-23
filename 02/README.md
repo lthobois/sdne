@@ -1,167 +1,137 @@
 # Atelier 02 - SQLi, XSS, CSRF, SSRF
 
-## But
+## Pre-requis
 
-Reproduire quatre classes de failles web, puis verifier les contre-mesures implementees.
+- Etre positionne a la racine du depot `sdne`
+- .NET SDK 9.x installe
+- PowerShell 7+
 
-## Demarrage
+## Etape 1 - Initialiser et lancer l'API
 
-```powershell
-cd .\02\AppSecWorkshop02
-dotnet run
-```
-
-## Mode operatoire
-
-### Etape 1 - SQL Injection
-
-Action:
-- Envoyer un payload SQL dans `username`.
-
-Requete vulnerable:
-```http
-GET /vuln/sql/users?username=' OR 1=1 -- HTTP/1.1
-Host: localhost
-```
-
-Requete corrigee:
-```http
-GET /secure/sql/users?username=' OR 1=1 -- HTTP/1.1
-Host: localhost
-```
-
-Resultat attendu:
-- `vuln`: plusieurs utilisateurs remontent.
-- `secure`: pas d'escalade, resultat filtre.
-
-Point a observer:
-- difference entre concatener SQL et parametrer SQL.
-
-### Etape 2 - XSS
-
-Requete vulnerable:
-```http
-GET /vuln/xss?input=<script>alert('xss')</script> HTTP/1.1
-Host: localhost
-```
-
-Requete corrigee:
-```http
-GET /secure/xss?input=<script>alert('xss')</script> HTTP/1.1
-Host: localhost
-```
-
-Resultat attendu:
-- `vuln`: script injecte dans la reponse HTML.
-- `secure`: payload encode (`&lt;script&gt;`).
-
-Point a observer:
-- encoder la sortie selon le contexte HTML.
-
-### Etape 3 - CSRF
-
-Action 1: creer une session.
-```http
-POST /auth/login HTTP/1.1
-Host: localhost
-Content-Type: application/json
-
-{"username":"alice"}
-```
-
-Recuperer:
-- cookie `session-id`
-- valeur `csrfToken` dans la reponse.
-
-Action 2: appel sans token CSRF.
-```http
-POST /vuln/csrf/transfer HTTP/1.1
-Host: localhost
-Content-Type: application/json
-Cookie: session-id=...
-
-{"to":"mallory","amount":100}
-```
-
-Action 3: appel securise sans puis avec token.
-```http
-POST /secure/csrf/transfer HTTP/1.1
-Host: localhost
-Content-Type: application/json
-Cookie: session-id=...
-
-{"to":"mallory","amount":100}
-```
-
-```http
-POST /secure/csrf/transfer HTTP/1.1
-Host: localhost
-Content-Type: application/json
-Cookie: session-id=...
-X-CSRF-Token: <csrfToken>
-
-{"to":"mallory","amount":100}
-```
-
-Resultat attendu:
-- sans token: `403`
-- avec token: `200`
-
-### Etape 4 - SSRF
-
-Requete vulnerable:
-```http
-GET /vuln/ssrf/fetch?url=http://example.com HTTP/1.1
-Host: localhost
-```
-
-Requete corrigee bloquee:
-```http
-GET /secure/ssrf/fetch?url=http://localhost:5142 HTTP/1.1
-Host: localhost
-```
-
-Requete corrigee autorisee:
-```http
-GET /secure/ssrf/fetch?url=https://jsonplaceholder.typicode.com/todos/1 HTTP/1.1
-Host: localhost
-```
-
-Resultat attendu:
-- blocage des cibles non autorisees.
-- acceptation des hosts en allowlist.
-
-## Reexecution rapide
-
-- Utiliser `AppSecWorkshop02.http`.
-- Rejouer chaque couple `vuln` / `secure`.
-
-## Script PowerShell des appels Web Service
+Objectif: restaurer, compiler et lancer l'atelier.
 
 ```powershell
-cd .\02
-.\scripts\calls.ps1
+Set-Location .\02
+dotnet restore .\AppSecWorkshop02\AppSecWorkshop02.csproj
+$BaseUrl = 'http://localhost:5102'
+dotnet run --project .\AppSecWorkshop02\AppSecWorkshop02.csproj --urls=$BaseUrl
+```
+
+Resultat attendu: API active sur `http://localhost:5102`.
+
+## Etape 2 - SQL Injection: comparer vuln vs secure
+
+Objectif: visualiser la difference entre requete concatenee et requete parametree.
+
+```powershell
+$BaseUrl = 'http://localhost:5102'
+$payload = "alice' OR 1=1 --"
+
+Invoke-RestMethod -Uri "$BaseUrl/vuln/sql/users?username=$([uri]::EscapeDataString($payload))" -Method Get
+Invoke-RestMethod -Uri "$BaseUrl/secure/sql/users?username=$([uri]::EscapeDataString($payload))" -Method Get
+```
+
+Resultat attendu:
+
+- `vuln`: plusieurs utilisateurs peuvent etre renvoyes
+- `secure`: pas de contournement SQL
+
+## Etape 3 - XSS reflechi
+
+Objectif: comparer sortie HTML non encodee vs encodee.
+
+```powershell
+$BaseUrl = 'http://localhost:5102'
+$payload = '<script>alert("xss")</script>'
+
+Invoke-WebRequest -Uri "$BaseUrl/vuln/xss?input=$([uri]::EscapeDataString($payload))" -Method Get | Select-Object -ExpandProperty Content
+Invoke-WebRequest -Uri "$BaseUrl/secure/xss?input=$([uri]::EscapeDataString($payload))" -Method Get | Select-Object -ExpandProperty Content
+```
+
+Resultat attendu:
+
+- `vuln`: balise script presente telle quelle
+- `secure`: contenu encode HTML
+
+## Etape 4 - CSRF
+
+Objectif: reproduire un transfert sans token puis avec token valide.
+
+```powershell
+$BaseUrl = 'http://localhost:5102'
+$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+
+$loginBody = @{ username = 'alice' } | ConvertTo-Json
+$login = Invoke-RestMethod -Uri "$BaseUrl/auth/login" -Method Post -WebSession $session -ContentType 'application/json' -Body $loginBody
+$csrf = $login.csrfToken
+
+$transferBody = @{ to = 'bob'; amount = 150 } | ConvertTo-Json
+
+Invoke-RestMethod -Uri "$BaseUrl/vuln/csrf/transfer" -Method Post -WebSession $session -ContentType 'application/json' -Body $transferBody
+
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/csrf/transfer" -Method Post -WebSession $session -ContentType 'application/json' -Body $transferBody -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
+
+$headers = @{ 'X-CSRF-Token' = $csrf }
+Invoke-RestMethod -Uri "$BaseUrl/secure/csrf/transfer" -Method Post -WebSession $session -Headers $headers -ContentType 'application/json' -Body $transferBody
+```
+
+Resultat attendu:
+
+- endpoint `vuln`: accepte sans token
+- endpoint `secure`: refuse sans token (`403`), accepte avec token correct
+
+## Etape 5 - SSRF
+
+Objectif: verifier le filtrage d'URL sortante.
+
+```powershell
+$BaseUrl = 'http://localhost:5102'
+Invoke-RestMethod -Uri "$BaseUrl/vuln/ssrf/fetch?url=$([uri]::EscapeDataString('https://example.com'))" -Method Get
+Invoke-RestMethod -Uri "$BaseUrl/secure/ssrf/fetch?url=$([uri]::EscapeDataString('https://example.com'))" -Method Get
+
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/ssrf/fetch?url=$([uri]::EscapeDataString('http://127.0.0.1:80'))" -Method Get -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
+```
+
+Resultat attendu: URL sensible/localhost rejetee sur endpoint `secure`.
+
+## Verifications
+
+- SQLi observable sur `vuln`, bloquee sur `secure`
+- XSS encode sur `secure`
+- CSRF protege par en-tete `X-CSRF-Token`
+- SSRF controle par validation d'URL
+
+## Depannage
+
+- Si `403` sur transfert secure avec token, verifier l'en-tete exact `X-CSRF-Token`.
+- Si erreur base SQLite, relancer l'API pour reinitialiser `workshop.db`.
+
+## Nettoyage / Reset
+
+```powershell
+# Dans le terminal API
+# Ctrl+C
+
+Set-Location .\02
+Remove-Item .\workshop.db -ErrorAction SilentlyContinue
+dotnet clean .\AppSecWorkshop02\AppSecWorkshop02.csproj
 ```
 
 ## Diagramme Mermaid
 
 ```mermaid
-graph TD
-  N1[Request] --> N2{Path family}
-  N2 --> N3[SQL vulnerable]
-  N2 --> N4[SQL secure]
-  N2 --> N5[XSS vulnerable]
-  N2 --> N6[XSS secure]
-  N2 --> N7[CSRF vulnerable]
-  N2 --> N8[CSRF secure]
-  N2 --> N9[SSRF vulnerable]
-  N2 --> N10[SSRF secure]
-  N3 --> N11[String concatenation]
-  N4 --> N12[Parameterized query]
-  N5 --> N13[Raw html]
-  N6 --> N14[Encoded output]
-  N7 --> N15[No token check]
-  N8 --> N16[Token validated]
-  N9 --> N17[Any url allowed]
-  N10 --> N18[Allowlist and block internal]
+flowchart TD
+    A[Client] --> B[API Atelier 02]
+    B --> C[SQLi checks]
+    B --> D[XSS checks]
+    B --> E[CSRF checks]
+    B --> F[SSRF checks]
 ```

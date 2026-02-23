@@ -1,121 +1,127 @@
-# Atelier 07 - Limiter la surface d'exposition
+# Atelier 07 - Limiter l'exposition
 
-## But
+## Pre-requis
 
-Mettre en place des defenses runtime: controle admin, filtrage, validation upload, limitation de debit.
+- Etre positionne a la racine du depot `sdne`
+- .NET SDK 9.x installe
+- PowerShell 7+
 
-## Demarrage
+## Etape 1 - Initialiser et lancer
 
-```powershell
-cd .\07
-dotnet build .\Atelier07.slnx
-dotnet test .\Atelier07.slnx
-dotnet run --project .\ExposureDefenseLab\ExposureDefenseLab.csproj
-```
-
-## Mode operatoire
-
-### Etape 1 - Endpoint admin
-
-Requetes:
-```http
-GET /vuln/admin/ping HTTP/1.1
-Host: localhost
-```
-
-```http
-GET /secure/admin/ping HTTP/1.1
-Host: localhost
-```
-
-```http
-GET /secure/admin/ping HTTP/1.1
-Host: localhost
-X-Admin-Key: workshop-admin-key
-```
-
-Resultat attendu:
-- `vuln`: acces direct.
-- `secure`: `401` sans cle, `200` avec cle.
-
-### Etape 2 - Filtrage type WAF
-
-Requetes:
-```http
-GET /vuln/search?q=<script>alert(1)</script> HTTP/1.1
-Host: localhost
-```
-
-```http
-GET /secure/search?q=<script>alert(1)</script> HTTP/1.1
-Host: localhost
-```
-
-Resultat attendu:
-- `secure`: `403` sur pattern malveillant.
-
-### Etape 3 - Validation upload
-
-Requete vulnerable:
-```http
-POST /vuln/upload/meta HTTP/1.1
-Host: localhost
-Content-Type: application/json
-
-{"fileName":"payload.exe","contentType":"application/x-msdownload","size":1000}
-```
-
-Requete securisee rejet:
-```http
-POST /secure/upload/meta HTTP/1.1
-Host: localhost
-Content-Type: application/json
-
-{"fileName":"payload.exe","contentType":"application/x-msdownload","size":1000}
-```
-
-Requete securisee valide:
-```http
-POST /secure/upload/meta HTTP/1.1
-Host: localhost
-Content-Type: application/json
-
-{"fileName":"document.pdf","contentType":"application/pdf","size":34567}
-```
-
-### Etape 4 - Rate limiting
-
-Action:
-- envoyer plus de 5 requetes en moins de 10 secondes vers une route.
-
-Resultat attendu:
-- reponses `429 Too Many Requests` au-dela du quota.
-
-## Automatisation
+Objectif: demarrer l'API avec protections de surface d'attaque.
 
 ```powershell
-.\scripts\run-defense-checks.ps1
+Set-Location .\07
+dotnet restore .\Atelier07.slnx
+$BaseUrl = 'http://localhost:5107'
+dotnet run --project .\ExposureDefenseLab\ExposureDefenseLab.csproj --urls=$BaseUrl
 ```
 
-## Script PowerShell des appels Web Service
+Resultat attendu: API active sur `http://localhost:5107`.
+
+## Etape 2 - Endpoint admin: vuln vs secure
+
+Objectif: observer la protection par cle API admin.
 
 ```powershell
-cd .\07
-.\scripts\calls.ps1
+$BaseUrl = 'http://localhost:5107'
+Invoke-RestMethod -Uri "$BaseUrl/vuln/admin/ping" -Method Get
+
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/admin/ping" -Method Get -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
+
+$headers = @{ 'X-Admin-Key' = 'workshop-admin-key' }
+Invoke-RestMethod -Uri "$BaseUrl/secure/admin/ping" -Method Get -Headers $headers
+```
+
+Resultat attendu: acces secure autorise uniquement avec `X-Admin-Key` valide.
+
+## Etape 3 - Filtrage WAF-like
+
+Objectif: verifier blocage de patterns malveillants.
+
+```powershell
+$BaseUrl = 'http://localhost:5107'
+Invoke-RestMethod -Uri "$BaseUrl/secure/search?q=normal-query" -Method Get
+
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/search?q=$([uri]::EscapeDataString('<script>alert(1)</script>'))" -Method Get -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
+```
+
+Resultat attendu: requete suspecte bloquee en `403`.
+
+## Etape 4 - Validation metadata upload
+
+Objectif: verifier controles type/taille/nom de fichier.
+
+```powershell
+$BaseUrl = 'http://localhost:5107'
+
+$ok = @{ fileName = 'doc.pdf'; contentType = 'application/pdf'; size = 1200 } | ConvertTo-Json
+Invoke-RestMethod -Uri "$BaseUrl/secure/upload/meta" -Method Post -ContentType 'application/json' -Body $ok
+
+$bad = @{ fileName = '..\\evil.exe'; contentType = 'application/octet-stream'; size = 99999999 } | ConvertTo-Json
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/upload/meta" -Method Post -ContentType 'application/json' -Body $bad -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
+```
+
+Resultat attendu: payload invalide refuse.
+
+## Etape 5 - Rate limiting
+
+Objectif: observer la limitation du debit.
+
+```powershell
+$BaseUrl = 'http://localhost:5107'
+1..8 | ForEach-Object {
+    try {
+        $r = Invoke-WebRequest -Uri "$BaseUrl/vuln/search?q=test$_" -Method Get -ErrorAction Stop
+        "Req $_ -> $($r.StatusCode)"
+    } catch {
+        "Req $_ -> $($_.Exception.Response.StatusCode.value__)"
+    }
+}
+```
+
+Resultat attendu: certaines requetes passent en `429`.
+
+## Verifications
+
+- Endpoint admin secure protege
+- Filtrage de pattern malveillant actif
+- Validation upload appliquee
+- Rate limiter actif
+
+## Depannage
+
+- Si toutes les requetes sont bloquees, attendre 10 secondes puis retester (fenetre rate limit).
+- Si acces admin secure refuse, verifier la cle `X-Admin-Key`.
+
+## Nettoyage / Reset
+
+```powershell
+# Dans le terminal API
+# Ctrl+C
+
+Set-Location .\07
+dotnet clean .\Atelier07.slnx
 ```
 
 ## Diagramme Mermaid
 
 ```mermaid
-graph TD
-  N1[Request] --> N2[Rate limiter]
-  N2 --> N3[Security filter]
-  N3 --> N4{Malicious pattern}
-  N4 -- Yes --> N5[Blocked 403]
-  N4 -- No --> N6{Admin route}
-  N6 -- Yes --> N7{Api key valid}
-  N7 -- No --> N8[Unauthorized 401]
-  N7 -- Yes --> N9[Allowed 200]
-  N6 -- No --> N10[Business endpoint]
-  N10 --> N11[Upload validation]
+flowchart LR
+    A[Request] --> B[Rate limiter]
+    B --> C[Security filter]
+    C --> D[Endpoint authz]
+    D --> E[Response]
 ```

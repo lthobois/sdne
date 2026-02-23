@@ -1,120 +1,116 @@
-# Atelier 06 - Securite du code externe et supply chain
+# Atelier 06 - Securite du code externe
 
-## But
+## Pre-requis
 
-Verifier les controles sur les dependances tierces, les appels API sortants et la gestion des secrets.
+- Etre positionne a la racine du depot `sdne`
+- .NET SDK 9.x installe
+- PowerShell 7+
 
-## Demarrage
+## Etape 1 - Initialiser et lancer
 
-```powershell
-cd .\06
-dotnet build .\Atelier06.slnx
-dotnet test .\Atelier06.slnx
-dotnet run --project .\SupplyChainSecurityLab\SupplyChainSecurityLab.csproj
-```
-
-## Mode operatoire
-
-### Etape 1 - Secrets
-
-Requetes:
-```http
-GET /vuln/config/secret HTTP/1.1
-Host: localhost
-```
-
-```http
-GET /secure/config/secret HTTP/1.1
-Host: localhost
-```
-
-Resultat attendu:
-- `vuln`: valeur de secret exposee.
-- `secure`: indicateur de configuration sans fuite de secret.
-
-### Etape 2 - Appels API sortants
-
-Requete vulnerable:
-```http
-GET /vuln/outbound/fetch?url=http://example.com HTTP/1.1
-Host: localhost
-```
-
-Requete securisee bloquee:
-```http
-GET /secure/outbound/fetch?url=http://example.com HTTP/1.1
-Host: localhost
-```
-
-Requete securisee autorisee:
-```http
-GET /secure/outbound/fetch?url=https://jsonplaceholder.typicode.com/todos/1 HTTP/1.1
-Host: localhost
-```
-
-Point a observer:
-- enforcement HTTPS + host allowlist.
-
-### Etape 3 - Provenance dependance
-
-Requete vulnerable:
-```http
-POST /vuln/dependency/approve HTTP/1.1
-Host: localhost
-Content-Type: application/json
-
-{"packageId":"Evil.Package","sourceUrl":"https://evil.example/feed/pkg.nupkg","sha256":"1234"}
-```
-
-Requete securisee invalide:
-```http
-POST /secure/dependency/approve HTTP/1.1
-Host: localhost
-Content-Type: application/json
-
-{"packageId":"Evil.Package","sourceUrl":"https://evil.example/feed/pkg.nupkg","sha256":"1234"}
-```
-
-Requete securisee valide:
-```http
-POST /secure/dependency/approve HTTP/1.1
-Host: localhost
-Content-Type: application/json
-
-{"packageId":"Polly","sourceUrl":"https://api.nuget.org/v3/index.json","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
-```
-
-### Etape 4 - Automatisation SCA + SBOM
-
-Commandes:
-```powershell
-.\scripts\run-sca.ps1
-.\scripts\generate-sbom.ps1
-```
-
-Resultat attendu:
-- sortie de scan dependances vulnerables/obsoletes.
-- fichier SBOM genere.
-
-## Script PowerShell des appels Web Service
+Objectif: demarrer l'API supply-chain locale.
 
 ```powershell
-cd .\06
-.\scripts\calls.ps1
+Set-Location .\06
+dotnet restore .\Atelier06.slnx
+$BaseUrl = 'http://localhost:5106'
+dotnet run --project .\SupplyChainSecurityLab\SupplyChainSecurityLab.csproj --urls=$BaseUrl
+```
+
+Resultat attendu: API active sur `http://localhost:5106`.
+
+## Etape 2 - Secrets: hardcode vs variable d'environnement
+
+Objectif: verifier la difference de gestion de secret.
+
+```powershell
+$BaseUrl = 'http://localhost:5106'
+Invoke-RestMethod -Uri "$BaseUrl/vuln/config/secret" -Method Get
+
+$env:UPSTREAM_API_KEY = 'local-workshop-key'
+Invoke-RestMethod -Uri "$BaseUrl/secure/config/secret" -Method Get
+```
+
+Resultat attendu: endpoint secure indique `keyConfigured = true`.
+
+## Etape 3 - Appels sortants controles
+
+Objectif: comparer fetch non filtre et fetch filtre.
+
+```powershell
+$BaseUrl = 'http://localhost:5106'
+Invoke-RestMethod -Uri "$BaseUrl/vuln/outbound/fetch?url=$([uri]::EscapeDataString('https://example.com'))" -Method Get
+Invoke-RestMethod -Uri "$BaseUrl/secure/outbound/fetch?url=$([uri]::EscapeDataString('https://example.com'))" -Method Get
+
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/outbound/fetch?url=$([uri]::EscapeDataString('http://127.0.0.1:80'))" -Method Get -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
+```
+
+Resultat attendu: URL locale rejetee en mode secure.
+
+## Etape 4 - Approbation de dependance
+
+Objectif: tester controles allowlist + format SHA-256.
+
+```powershell
+$BaseUrl = 'http://localhost:5106'
+
+$bad = @{ packageId = 'unknown.pkg'; sourceUrl = 'https://evil.local/pkg'; sha256 = '123' } | ConvertTo-Json
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/dependency/approve" -Method Post -ContentType 'application/json' -Body $bad -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
+
+$shaBody = @{ payload = 'package-content-v1' } | ConvertTo-Json
+$sha = Invoke-RestMethod -Uri "$BaseUrl/secure/dependency/sha256" -Method Post -ContentType 'application/json' -Body $shaBody
+$sha.sha256
+```
+
+Resultat attendu: rejet de la demande invalide et hash SHA-256 valide calcule.
+
+## Etape 5 - Tests automatiques
+
+Objectif: valider les controles supply-chain via tests.
+
+```powershell
+Set-Location .\06
+dotnet test .\SupplyChainSecurityLab.Tests\SupplyChainSecurityLab.Tests.csproj
+```
+
+Resultat attendu: tests `Passed`.
+
+## Verifications
+
+- Secret non expose en dur dans le mode secure
+- URLs sortantes sensibles bloquees
+- Validation package/source/hash active
+
+## Depannage
+
+- Si `secure/config/secret` retourne `false`, relancer API apres definir `UPSTREAM_API_KEY`.
+- Si fetch HTTPS echoue, verifier acces Internet local.
+
+## Nettoyage / Reset
+
+```powershell
+# Dans le terminal API
+# Ctrl+C
+
+Set-Location .\06
+Remove-Item Env:\UPSTREAM_API_KEY -ErrorAction SilentlyContinue
+dotnet clean .\Atelier06.slnx
 ```
 
 ## Diagramme Mermaid
 
 ```mermaid
-graph TD
-  N1[External usage] --> N2{Control type}
-  N2 --> N3[Secret handling]
-  N2 --> N4[Outbound call]
-  N2 --> N5[Dependency approval]
-  N3 --> N6[Use env or vault]
-  N4 --> N7[Require https and allowlist]
-  N5 --> N8[Package allowlist]
-  N5 --> N9[Source allowlist]
-  N5 --> N10[Sha256 validation]
-  N8 --> N11[Sbom and sca]
+flowchart TD
+    A[Dependency request] --> B[Host allowlist]
+    B --> C[Package allowlist]
+    C --> D[SHA256 format]
+    D --> E[Approved or Rejected]
 ```

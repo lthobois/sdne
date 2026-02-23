@@ -1,98 +1,124 @@
-# Atelier 05 - Tests de securite automatises
+# Atelier 05 - Validation continue (tests, SAST, DAST)
 
-## But
+## Pre-requis
 
-Automatiser la validation securite via tests d'integration, verification SAST/SCA et scan DAST baseline.
+- Etre positionne a la racine du depot `sdne`
+- .NET SDK 9.x installe
+- PowerShell 7+
 
-## Demarrage
+## Etape 1 - Restaurer la solution atelier
+
+Objectif: preparer API et projet de tests.
 
 ```powershell
-cd .\05
-dotnet build .\Atelier05.slnx
-dotnet test .\Atelier05.slnx
+Set-Location .\05
+dotnet restore .\Atelier05.slnx
 ```
 
-## Mode operatoire
+Resultat attendu: restauration sans erreur.
 
-### Etape 1 - Executer les tests de regression securite
+## Etape 2 - Lancer l'API manuellement
 
-Commande:
+Objectif: disposer d'une cible locale pour les checks DAST.
+
 ```powershell
-dotnet test .\Atelier05.slnx
+$BaseUrl = 'http://localhost:5105'
+dotnet run --project .\SecurityValidationLab\SecurityValidationLab.csproj --urls=$BaseUrl
 ```
 
-Controles verifies:
-- encodage XSS sur `/secure/xss`
-- blocage open redirect sur `/secure/open-redirect`
-- politique mot de passe sur `/secure/register`
-- presence des headers securite
+Resultat attendu: API active sur `http://localhost:5105`.
 
-### Etape 2 - Rejouer les requetes manuelles
+## Etape 3 - Verifier manuellement les endpoints critiques
 
-Lancer l'API:
+Objectif: reproduire rapidement les cas XSS et open redirect.
+
 ```powershell
-dotnet run --project .\SecurityValidationLab\SecurityValidationLab.csproj
+$BaseUrl = 'http://localhost:5105'
+$xss = '<script>alert(1)</script>'
+
+Invoke-WebRequest -Uri "$BaseUrl/vuln/xss?input=$([uri]::EscapeDataString($xss))" | Select-Object -ExpandProperty Content
+Invoke-WebRequest -Uri "$BaseUrl/secure/xss?input=$([uri]::EscapeDataString($xss))" | Select-Object -ExpandProperty Content
+
+Invoke-WebRequest -Uri "$BaseUrl/vuln/open-redirect?returnUrl=$([uri]::EscapeDataString('https://example.com'))" -MaximumRedirection 0 -ErrorAction SilentlyContinue | Select-Object StatusCode
+
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/open-redirect?returnUrl=$([uri]::EscapeDataString('https://example.com'))" -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
 ```
 
-Executer les requetes de `SecurityValidationLab.http`:
-- `/vuln/xss` puis `/secure/xss`
-- `/vuln/open-redirect` puis `/secure/open-redirect`
-- `/secure/register` avec mot de passe faible puis fort
+Resultat attendu: comportement vulnerable observable uniquement sur endpoints `vuln`.
 
-Point a observer:
-- les tests automatises couvrent exactement ces controles.
+## Etape 4 - Executer les tests automatises
 
-### Etape 3 - Executer le script SAST/SCA
+Objectif: valider la non-regression securite.
 
-Commande:
 ```powershell
-.\scripts\run-sast.ps1
+Set-Location .\05
+dotnet test .\SecurityValidationLab.Tests\SecurityValidationLab.Tests.csproj
 ```
 
-Ce script execute:
-- build
-- tests
-- scan des dependances vulnerables (transitives incluses)
+Resultat attendu: tests `Passed`.
 
-### Etape 4 - Executer le scan DAST baseline
+## Etape 5 - Simuler un controle SAST local
 
-Pre-requis:
-- Docker actif
-- API lancee localement
+Objectif: lancer une analyse statique minimale reproductible.
 
-Commande:
 ```powershell
-.\scripts\run-dast.ps1 -TargetUrl http://host.docker.internal:5000
+Set-Location .\05
+dotnet build .\SecurityValidationLab\SecurityValidationLab.csproj -warnaserror
 ```
 
-Resultat attendu:
-- rapport `zap-report.html` genere.
+Resultat attendu: build propre, sans avertissement non traite.
 
-### Etape 5 - Integrer en CI
+## Etape 6 - Simuler un controle DAST local
 
-Reference:
-- `pipeline/security-ci.yml`
-
-Verification:
-- la pipeline doit echouer si build/tests echouent ou si un scan dependance detecte un probleme.
-
-## Script PowerShell des appels Web Service
+Objectif: enchainer des checks HTTP scriptables.
 
 ```powershell
-cd .\05
-.\scripts\calls.ps1
+$BaseUrl = 'http://localhost:5105'
+$checks = @(
+    "$BaseUrl/vuln/xss?input=test",
+    "$BaseUrl/secure/xss?input=test",
+    "$BaseUrl/secure/open-redirect?returnUrl=%2Fok"
+)
+
+foreach ($url in $checks) {
+    $r = Invoke-WebRequest -Uri $url -Method Get
+    "{0} -> {1}" -f $url, $r.StatusCode
+}
+```
+
+Resultat attendu: tous les checks retounent `200` sur les cas valides.
+
+## Verifications
+
+- Tests unitaires/integration verts
+- Cas manuels `vuln` vs `secure` distingues
+- Pipeline local reproductible via commandes CI-friendly
+
+## Depannage
+
+- Si `dotnet test` echoue, executer `dotnet build` pour isoler l'erreur.
+- Si DAST local echoue, verifier que l'API tourne toujours sur `5105`.
+
+## Nettoyage / Reset
+
+```powershell
+# Dans le terminal API
+# Ctrl+C
+
+Set-Location .\05
+dotnet clean .\Atelier05.slnx
 ```
 
 ## Diagramme Mermaid
 
 ```mermaid
-graph TD
-  N1[Code change] --> N2[Build]
-  N2 --> N3[Security tests]
-  N3 --> N4[Static checks]
-  N4 --> N5[Dynamic baseline scan]
-  N5 --> N6[Ci decision]
-  N3 -- Fail --> N7[Pipeline failed]
-  N4 -- Risk found --> N7
-  N5 -- Risk found --> N7
+flowchart LR
+    A[Code] --> B[Build]
+    B --> C[Tests]
+    C --> D[Manual DAST checks]
+    D --> E[Decision]
 ```

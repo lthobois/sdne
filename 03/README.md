@@ -1,120 +1,116 @@
-# Atelier 03 - Session theft, deserialisation, IDOR
+# Atelier 03 - Session, Deserialisation, IDOR
 
-## But
+## Pre-requis
 
-Analyser des attaques avancees et verifier les controles applicatifs associes.
+- Etre positionne a la racine du depot `sdne`
+- .NET SDK 9.x installe
+- PowerShell 7+
 
-## Demarrage
+## Etape 1 - Initialiser et lancer
+
+Objectif: demarrer l'API de l'atelier.
 
 ```powershell
-cd .\03\AppSecWorkshop03
-dotnet run
+Set-Location .\03
+dotnet restore .\AppSecWorkshop03\AppSecWorkshop03.csproj
+$BaseUrl = 'http://localhost:5103'
+dotnet run --project .\AppSecWorkshop03\AppSecWorkshop03.csproj --urls=$BaseUrl
 ```
 
-## Mode operatoire
+Resultat attendu: API active sur `http://localhost:5103`.
 
-### Etape 1 - Vol de session
+## Etape 2 - Session theft (token)
 
-Action 1: obtenir un token vulnerable.
-```http
-POST /vuln/session/login HTTP/1.1
-Host: localhost
-Content-Type: application/json
+Objectif: comparer validation faible et validation renforcee.
 
-{"username":"alice"}
+```powershell
+$BaseUrl = 'http://localhost:5103'
+$loginBody = @{ username = 'alice' } | ConvertTo-Json
+
+$vulnLogin = Invoke-RestMethod -Uri "$BaseUrl/vuln/session/login" -Method Post -ContentType 'application/json' -Body $loginBody
+$vulnToken = $vulnLogin.token
+Invoke-RestMethod -Uri "$BaseUrl/vuln/session/profile?token=$vulnToken" -Method Get
+
+$secureLogin = Invoke-RestMethod -Uri "$BaseUrl/secure/session/login" -Method Post -ContentType 'application/json' -Headers @{ 'User-Agent' = 'WorkshopAgent/1.0' } -Body $loginBody
+$secureToken = $secureLogin.token
+Invoke-RestMethod -Uri "$BaseUrl/secure/session/profile" -Method Get -Headers @{ 'X-Session-Token' = $secureToken; 'User-Agent' = 'WorkshopAgent/1.0' }
 ```
 
-Action 2: reutiliser un token previsible.
-```http
-GET /vuln/session/profile?token=YWxpY2U6d29ya3Nob3Atc2Vzc2lvbg== HTTP/1.1
-Host: localhost
-```
+Resultat attendu: profile secure valide seulement avec token + contexte attendu.
 
-Action 3: comparer avec le flux securise.
-- `POST /secure/session/login`
-- `GET /secure/session/profile` avec `X-Session-Token`
+## Etape 3 - Deserialisation
 
-Point a observer:
-- token fort + expiration + contexte client.
+Objectif: tester endpoint vulnerable puis endpoint securise.
 
-### Etape 2 - Deserialisation non sure
+```powershell
+$BaseUrl = 'http://localhost:5103'
 
-Requete vulnerable:
-```http
-POST /vuln/deserialization/execute HTTP/1.1
-Host: localhost
-Content-Type: application/json
+$safeBody = @{ action = 'echo'; message = 'hello' } | ConvertTo-Json
+Invoke-RestMethod -Uri "$BaseUrl/secure/deserialization/execute" -Method Post -ContentType 'application/json' -Body $safeBody
 
-{
-  "$type":"AppSecWorkshop03.Serialization.DangerousAction, AppSecWorkshop03",
-  "FileName":"owned-by-deserialization.txt",
-  "Content":"Payload deserialize"
+$badBody = @{ action = 'delete-all'; message = 'x' } | ConvertTo-Json
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/deserialization/execute" -Method Post -ContentType 'application/json' -Body $badBody -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
 }
 ```
 
-Requete corrigee:
-```http
-POST /secure/deserialization/execute HTTP/1.1
-Host: localhost
-Content-Type: application/json
+Resultat attendu: seule l'action `echo` est acceptee en mode secure.
 
-{"action":"echo","message":"safe payload"}
-```
+## Etape 4 - IDOR
 
-Resultat attendu:
-- `vuln`: effet de bord (fichier cree).
-- `secure`: seules actions explicitement autorisees.
-
-### Etape 3 - IDOR
-
-Requete vulnerable:
-```http
-GET /vuln/idor/orders/1002?username=alice HTTP/1.1
-Host: localhost
-```
-
-Requete corrigee:
-```http
-GET /secure/idor/orders/1002?username=alice HTTP/1.1
-Host: localhost
-```
-
-Requete admin:
-```http
-GET /secure/idor/orders/1002?username=bob HTTP/1.1
-Host: localhost
-```
-
-Resultat attendu:
-- `vuln`: lecture non autorisee possible.
-- `secure`: refus pour non-proprietaire, acces admin controle.
-
-## Reexecution rapide
-
-- Utiliser `AppSecWorkshop03.http`.
-
-## Script PowerShell des appels Web Service
+Objectif: verifier qu'un utilisateur ne lit pas une ressource qui ne lui appartient pas.
 
 ```powershell
-cd .\03
-.\scripts\calls.ps1
+$BaseUrl = 'http://localhost:5103'
+
+Invoke-RestMethod -Uri "$BaseUrl/vuln/idor/orders/2?username=alice" -Method Get
+
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/idor/orders/2?username=alice" -Method Get -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
+
+Invoke-RestMethod -Uri "$BaseUrl/secure/idor/orders/2?username=admin" -Method Get
+```
+
+Resultat attendu:
+
+- `vuln`: acces direct possible
+- `secure`: `403` pour utilisateur non autorise, acces admin autorise
+
+## Verifications
+
+- Token vulnerable reutilisable facilement
+- Validation secure impose en-tete token
+- Actions de deserialisation whitelistes
+- Controle d'acces objet actif sur endpoint secure
+
+## Depannage
+
+- Si `401` sur `/secure/session/profile`, verifier `X-Session-Token` et `User-Agent`.
+- Si `404` sur commandes IDOR, utiliser un id existant (ex: `1` ou `2`).
+
+## Nettoyage / Reset
+
+```powershell
+# Dans le terminal API
+# Ctrl+C
+
+Set-Location .\03
+dotnet clean .\AppSecWorkshop03\AppSecWorkshop03.csproj
 ```
 
 ## Diagramme Mermaid
 
 ```mermaid
-graph TD
-  N1[User action] --> N2{Scenario}
-  N2 --> N3[Session theft]
-  N2 --> N4[Insecure deserialization]
-  N2 --> N5[Object access issue]
-  N3 --> N6[Vulnerable session path]
-  N3 --> N7[Secure session path]
-  N4 --> N8[Vulnerable deserialization path]
-  N4 --> N9[Secure deserialization path]
-  N5 --> N10[Vulnerable object path]
-  N5 --> N11[Secure object path]
-  N7 --> N12[Strong token and expiry]
-  N9 --> N13[Strict input contract]
-  N11 --> N14[Object authorization]
+flowchart TD
+    A[Client] --> B[Session module]
+    A --> C[Deserialization module]
+    A --> D[IDOR module]
+    B --> E[Secure checks]
+    C --> E
+    D --> E
 ```

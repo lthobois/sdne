@@ -1,123 +1,136 @@
-# Atelier 04 - Secure code et hardening
+# Atelier 04 - Secure Coding et durcissement
 
-## But
+## Pre-requis
 
-Appliquer des controles de securite de base dans le code applicatif.
+- Etre positionne a la racine du depot `sdne`
+- .NET SDK 9.x installe
+- PowerShell 7+
 
-## Demarrage
+## Etape 1 - Initialiser et lancer
+
+Objectif: lancer l'API pour comparer endpoints `vuln` et `secure`.
 
 ```powershell
-cd .\04\AppSecWorkshop04
-dotnet run
+Set-Location .\04
+dotnet restore .\AppSecWorkshop04\AppSecWorkshop04.csproj
+$BaseUrl = 'http://localhost:5104'
+dotnet run --project .\AppSecWorkshop04\AppSecWorkshop04.csproj --urls=$BaseUrl
 ```
 
-## Mode operatoire
+Resultat attendu: API active sur `http://localhost:5104`.
 
-### Etape 1 - Validation d'entree
+## Etape 2 - Validation des entrees (register)
 
-Requete vulnerable:
-```http
-POST /vuln/register HTTP/1.1
-Host: localhost
-Content-Type: application/json
+Objectif: constater l'absence de validation puis la validation forte.
 
-{"username":"aa","password":"1234"}
-```
+```powershell
+$BaseUrl = 'http://localhost:5104'
 
-Requete corrigee (meme input):
-```http
-POST /secure/register HTTP/1.1
-Host: localhost
-Content-Type: application/json
+$weak = @{ username = 'a'; password = '123' } | ConvertTo-Json
+Invoke-RestMethod -Uri "$BaseUrl/vuln/register" -Method Post -ContentType 'application/json' -Body $weak
 
-{"username":"aa","password":"1234"}
-```
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/register" -Method Post -ContentType 'application/json' -Body $weak -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
 
-Requete corrigee valide:
-```http
-POST /secure/register HTTP/1.1
-Host: localhost
-Content-Type: application/json
-
-{"username":"alice.secure","password":"S3cure!Password"}
-```
-
-### Etape 2 - Path traversal
-
-Requete vulnerable:
-```http
-GET /vuln/files/read?path=..\\..\\appsettings.json HTTP/1.1
-Host: localhost
-```
-
-Requete corrigee:
-```http
-GET /secure/files/read?fileName=public-note.txt HTTP/1.1
-Host: localhost
-```
-
-Test de blocage:
-```http
-GET /secure/files/read?fileName=..\\..\\appsettings.json HTTP/1.1
-Host: localhost
-```
-
-### Etape 3 - Open redirect
-
-Requete vulnerable:
-```http
-GET /vuln/redirect?returnUrl=https://evil.example/phishing HTTP/1.1
-Host: localhost
-```
-
-Requete corrigee:
-```http
-GET /secure/redirect?returnUrl=/dashboard HTTP/1.1
-Host: localhost
-```
-
-Test de blocage:
-```http
-GET /secure/redirect?returnUrl=https://evil.example/phishing HTTP/1.1
-Host: localhost
-```
-
-### Etape 4 - Gestion d'erreurs et headers
-
-Requete:
-```http
-GET /secure/errors/divide-by-zero HTTP/1.1
-Host: localhost
+$strong = @{ username = 'alice.secure'; password = 'Str0ng!Passw0rd' } | ConvertTo-Json
+Invoke-RestMethod -Uri "$BaseUrl/secure/register" -Method Post -ContentType 'application/json' -Body $strong
 ```
 
 Resultat attendu:
-- message d'erreur generique.
-- headers presents: `X-Content-Type-Options`, `X-Frame-Options`, `Content-Security-Policy`, `Referrer-Policy`.
 
-## Reexecution rapide
+- `vuln/register`: accepte
+- `secure/register`: rejette faible puis accepte fort
 
-- Utiliser `AppSecWorkshop04.http`.
+## Etape 3 - Path traversal
 
-## Script PowerShell des appels Web Service
+Objectif: comparer lecture de chemin libre vs chemin contraint.
 
 ```powershell
-cd .\04
-.\scripts\calls.ps1
+$BaseUrl = 'http://localhost:5104'
+
+Invoke-RestMethod -Uri "$BaseUrl/secure/files/read?fileName=public-note.txt" -Method Get
+
+$traversal = '..\\..\\Windows\\win.ini'
+Invoke-RestMethod -Uri "$BaseUrl/vuln/files/read?path=$([uri]::EscapeDataString($traversal))" -Method Get
+
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/files/read?fileName=$([uri]::EscapeDataString($traversal))" -Method Get -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
+```
+
+Resultat attendu: tentative traversal rejetee cote `secure`.
+
+## Etape 4 - Open redirect
+
+Objectif: verifier qu'une URL externe est refusee sur endpoint securise.
+
+```powershell
+$BaseUrl = 'http://localhost:5104'
+
+Invoke-WebRequest -Uri "$BaseUrl/vuln/redirect?returnUrl=$([uri]::EscapeDataString('https://example.com'))" -MaximumRedirection 0 -ErrorAction SilentlyContinue | Select-Object StatusCode,Headers
+
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/redirect?returnUrl=$([uri]::EscapeDataString('https://example.com'))" -Method Get -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
+
+Invoke-RestMethod -Uri "$BaseUrl/secure/redirect?returnUrl=$([uri]::EscapeDataString('/home'))" -Method Get
+```
+
+Resultat attendu: URL externe refusee sur endpoint secure.
+
+## Etape 5 - Gestion d'erreurs
+
+Objectif: comparer fuite d'erreur brute et reponse maitrisee.
+
+```powershell
+$BaseUrl = 'http://localhost:5104'
+
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/vuln/errors/divide-by-zero" -Method Get -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
+
+Invoke-RestMethod -Uri "$BaseUrl/secure/errors/divide-by-zero" -Method Get
+```
+
+Resultat attendu: endpoint secure renvoie une erreur controlee (`ProblemDetails`).
+
+## Verifications
+
+- Validation stricte sur `secure/register`
+- Protection traversal sur `secure/files/read`
+- Refus URL externe sur `secure/redirect`
+- Erreur maitrisee sur `secure/errors/divide-by-zero`
+
+## Depannage
+
+- Si lecture `secure/files/read` renvoie `404`, verifier `public-note.txt`.
+- Si redirection suit automatiquement, ajouter `-MaximumRedirection 0`.
+
+## Nettoyage / Reset
+
+```powershell
+# Dans le terminal API
+# Ctrl+C
+
+Set-Location .\04
+dotnet clean .\AppSecWorkshop04\AppSecWorkshop04.csproj
 ```
 
 ## Diagramme Mermaid
 
 ```mermaid
-graph TD
-  N1[Input] --> N2{Control applied}
-  N2 -- No --> N3[Vulnerable branch]
-  N2 -- Yes --> N4[Secure branch]
-  N3 --> N5[Weak validation]
-  N3 --> N6[Traversal risk]
-  N3 --> N7[Open redirect risk]
-  N4 --> N8[Strong validation]
-  N4 --> N9[Safe file access]
-  N4 --> N10[Safe redirect]
-  N4 --> N11[Safe errors]
-  N4 --> N12[Security headers]
+flowchart TD
+    A[Input] --> B[Validation]
+    B --> C[File access]
+    B --> D[Redirect control]
+    B --> E[Error handling]
 ```

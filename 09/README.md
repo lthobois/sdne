@@ -1,111 +1,120 @@
-# Atelier 09 - Authentification et autorisation avancees
+# Atelier 09 - Durcissement AuthN/AuthZ
 
-## But
+## Pre-requis
 
-Verifier l'integrite d'un token signe, appliquer des scopes, et proteger l'acces objet.
+- Etre positionne a la racine du depot `sdne`
+- .NET SDK 9.x installe
+- PowerShell 7+
 
-## Demarrage
+## Etape 1 - Initialiser et lancer
 
-```powershell
-cd .\09
-dotnet build .\Atelier09.slnx
-dotnet test .\Atelier09.slnx
-dotnet run --project .\AuthzHardeningLab\AuthzHardeningLab.csproj
-```
-
-## Mode operatoire
-
-### Etape 1 - Token vulnerable non signe
-
-Requete:
-```http
-POST /vuln/auth/token HTTP/1.1
-Host: localhost
-Content-Type: application/json
-
-{"username":"alice","scope":"docs.read"}
-```
-
-Point a observer:
-- le token n'a aucune garantie d'integrite.
-
-### Etape 2 - Token securise signe
-
-Requete:
-```http
-POST /secure/auth/token HTTP/1.1
-Host: localhost
-Content-Type: application/json
-
-{"username":"alice","scope":"docs.read"}
-```
-
-Conserver la valeur `token`.
-
-### Etape 3 - Controle d'acces objet (BOLA/IDOR)
-
-Requete vulnerable:
-```http
-GET /vuln/docs/2?username=alice HTTP/1.1
-Host: localhost
-```
-
-Requete securisee:
-```http
-GET /secure/docs/2 HTTP/1.1
-Host: localhost
-Authorization: Bearer <token_alice_docs.read>
-```
-
-Resultat attendu:
-- `vuln`: lecture non autorisee possible.
-- `secure`: `403` si utilisateur non proprietaire.
-
-### Etape 4 - Scope d'action sensible
-
-Obtenir token avec publication:
-```http
-POST /secure/auth/token HTTP/1.1
-Host: localhost
-Content-Type: application/json
-
-{"username":"bob","scope":"docs.read docs.publish"}
-```
-
-Publier:
-```http
-POST /secure/docs/2/publish HTTP/1.1
-Host: localhost
-Authorization: Bearer <token_bob_docs.read_docs.publish>
-```
-
-Resultat attendu:
-- publication autorisee uniquement si scope + ownership valides.
-
-## Automatisation
+Objectif: demarrer l'API de hardening AuthN/AuthZ.
 
 ```powershell
-.\scripts\run-authz-checks.ps1
+Set-Location .\09
+dotnet restore .\Atelier09.slnx
+$BaseUrl = 'http://localhost:5109'
+dotnet run --project .\AuthzHardeningLab\AuthzHardeningLab.csproj --urls=$BaseUrl
 ```
 
-## Script PowerShell des appels Web Service
+Resultat attendu: API active sur `http://localhost:5109`.
+
+## Etape 2 - Emettre un token vulnerable et un token secure
+
+Objectif: comparer format non signe et token valide.
 
 ```powershell
-cd .\09
-.\scripts\calls.ps1
+$BaseUrl = 'http://localhost:5109'
+
+$vulnReq = @{ username = 'alice'; scope = 'docs.read' } | ConvertTo-Json
+Invoke-RestMethod -Uri "$BaseUrl/vuln/auth/token" -Method Post -ContentType 'application/json' -Body $vulnReq
+
+$secureReq = @{ username = 'alice'; scope = 'docs.read docs.publish' } | ConvertTo-Json
+$secureToken = Invoke-RestMethod -Uri "$BaseUrl/secure/auth/token" -Method Post -ContentType 'application/json' -Body $secureReq
+$Bearer = $secureToken.token
+```
+
+Resultat attendu: token secure recu pour les appels proteges.
+
+## Etape 3 - Controle d'acces objet (lecture document)
+
+Objectif: verifier scope + ownership.
+
+```powershell
+$BaseUrl = 'http://localhost:5109'
+$headers = @{ Authorization = "Bearer $Bearer" }
+Invoke-RestMethod -Uri "$BaseUrl/secure/docs/1" -Method Get -Headers $headers
+
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/docs/2" -Method Get -Headers $headers -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
+```
+
+Resultat attendu: document hors perimetre refuse (`403`) sauf scope/ownership adequat.
+
+## Etape 4 - Publication document avec scope
+
+Objectif: verifier la politique `docs.publish` + ownership.
+
+```powershell
+$BaseUrl = 'http://localhost:5109'
+$headers = @{ Authorization = "Bearer $Bearer" }
+Invoke-RestMethod -Uri "$BaseUrl/secure/docs/1/publish" -Method Post -Headers $headers
+```
+
+Resultat attendu: publication autorisee si le token et le proprietaire sont valides.
+
+## Etape 5 - Comparaison endpoint vulnerable
+
+Objectif: observer l'absence de controle robuste sur endpoint vuln.
+
+```powershell
+$BaseUrl = 'http://localhost:5109'
+Invoke-RestMethod -Uri "$BaseUrl/vuln/docs/2?username=alice" -Method Get
+```
+
+Resultat attendu: lecture possible en mode `vuln` sans verifications equivalentes.
+
+## Etape 6 - Executer les tests
+
+Objectif: valider automatiquement les controles AuthN/AuthZ.
+
+```powershell
+Set-Location .\09
+dotnet test .\AuthzHardeningLab.Tests\AuthzHardeningLab.Tests.csproj
+```
+
+Resultat attendu: tests `Passed`.
+
+## Verifications
+
+- Token secure requis pour endpoints secure
+- Scopes appliques (`docs.read`, `docs.publish`)
+- Autorisation objet appliquee (owner/admin)
+
+## Depannage
+
+- Si `401`, verifier format `Authorization: Bearer <token>`.
+- Si `403`, verifier scopes demandes lors de l'emission du token.
+
+## Nettoyage / Reset
+
+```powershell
+# Dans le terminal API
+# Ctrl+C
+
+Set-Location .\09
+dotnet clean .\Atelier09.slnx
 ```
 
 ## Diagramme Mermaid
 
 ```mermaid
-graph TD
-  N1[Bearer token] --> N2[Signature check]
-  N2 --> N3{Token valid and not expired}
-  N3 -- No --> N4[Unauthorized 401]
-  N3 -- Yes --> N5[Read scopes and subject]
-  N5 --> N6{Scope required}
-  N6 -- No --> N7[Forbidden 403]
-  N6 -- Yes --> N8{Owner or elevated scope}
-  N8 -- No --> N7
-  N8 -- Yes --> N9[Access granted]
+flowchart LR
+    A[Token request] --> B[Token validation]
+    B --> C[Scope check]
+    C --> D[Object ownership check]
+    D --> E[Allow or Deny]
 ```

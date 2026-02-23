@@ -1,128 +1,132 @@
-# Atelier 10 - Validation perimetrique (headers, proxy, DMZ)
+# Atelier 10 - Validation perimetrique
 
-## But
+## Pre-requis
 
-Valider les protections contre l'injection d'en-tetes HTTP et verifier la bonne prise en compte des headers forwarded derriere un proxy.
+- Etre positionne a la racine du depot `sdne`
+- .NET SDK 9.x installe
+- PowerShell 7+
+- (Optionnel) Docker Desktop pour scenario compose/nginx
 
-## Demarrage
+## Etape 1 - Initialiser et lancer
 
-```powershell
-cd .\10
-dotnet build .\Atelier10.slnx
-dotnet test .\Atelier10.slnx
-dotnet run --project .\PerimeterValidationLab\PerimeterValidationLab.csproj
-```
-
-## Mode operatoire
-
-### Etape 1 - Injection de headers sur lien de reset
-
-Requete vulnerable:
-```http
-GET /vuln/links/reset-password?user=alice HTTP/1.1
-Host: localhost
-X-Forwarded-Host: evil.example
-X-Forwarded-Proto: http
-```
-
-Resultat attendu:
-- le lien genere pointe vers `http://evil.example/...`.
-
-Point a observer:
-- confiance excessive dans des headers controles par le client.
-
-### Etape 2 - Version securisee
-
-Requete securisee avec host autorise:
-```http
-GET /secure/links/reset-password?user=alice HTTP/1.1
-Host: app.contoso.local
-X-Forwarded-Proto: https
-```
-
-Requete securisee avec host non autorise:
-```http
-GET /secure/links/reset-password?user=alice HTTP/1.1
-Host: evil.example
-```
-
-Resultat attendu:
-- host autorise: `200` + lien `https://app.contoso.local/...`
-- host non autorise: `400`
-
-### Etape 3 - Resolution tenant
-
-Requete vulnerable:
-```http
-GET /vuln/tenant/home HTTP/1.1
-Host: localhost
-X-Forwarded-Host: evil.example
-```
-
-Requete securisee:
-```http
-GET /secure/tenant/home HTTP/1.1
-Host: app.contoso.local
-X-Forwarded-Proto: https
-```
-
-Resultat attendu:
-- `vuln`: tenant force par header.
-- `secure`: only allowlist tenant.
-
-### Etape 4 - Diagnostic de forwarding
-
-Requete:
-```http
-GET /secure/diagnostics/request-meta HTTP/1.1
-Host: app.contoso.local
-X-Forwarded-Proto: https
-```
-
-Point a observer:
-- metadata de requete et decision de validation.
-
-### Etape 5 - Verification proxy et capture reseau
-
-Support:
-- `scripts/proxy-capture-playbook.md`
-- `infra/docker-compose.yml`
-- `infra/nginx.conf`
-
-Commandes:
-```powershell
-cd .\infra
-docker compose up --build
-```
-
-Ensuite:
-- rejouer les requetes via proxy
-- capturer et analyser les headers avec Wireshark/tcpdump
-
-## Automatisation
+Objectif: demarrer l'API perimetrique locale.
 
 ```powershell
-.\scripts\run-perimeter-checks.ps1
+Set-Location .\10
+dotnet restore .\Atelier10.slnx
+$BaseUrl = 'http://localhost:5110'
+dotnet run --project .\PerimeterValidationLab\PerimeterValidationLab.csproj --urls=$BaseUrl
 ```
 
-## Script PowerShell des appels Web Service
+Resultat attendu: API active sur `http://localhost:5110`.
+
+## Etape 2 - Header injection sur lien de reset
+
+Objectif: comparer resolution d'origine vulnerable et securisee.
 
 ```powershell
-cd .\10
-.\scripts\calls.ps1
+$BaseUrl = 'http://localhost:5110'
+$headers = @{ 'X-Forwarded-Host' = 'evil.example'; 'X-Forwarded-Proto' = 'http' }
+
+Invoke-RestMethod -Uri "$BaseUrl/vuln/links/reset-password?user=alice" -Method Get -Headers $headers
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/links/reset-password?user=alice" -Method Get -Headers $headers -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
+```
+
+Resultat attendu: endpoint secure rejette origine non fiable.
+
+## Etape 3 - Resolution tenant
+
+Objectif: verifier protection de la resolution multi-tenant par host.
+
+```powershell
+$BaseUrl = 'http://localhost:5110'
+$headersBad = @{ 'X-Forwarded-Host' = 'unknown-tenant.local'; 'X-Forwarded-Proto' = 'https' }
+
+Invoke-RestMethod -Uri "$BaseUrl/vuln/tenant/home" -Method Get -Headers $headersBad
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/tenant/home" -Method Get -Headers $headersBad -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
+```
+
+Resultat attendu: tenant inconnu refuse en mode secure (`403` ou `400`).
+
+## Etape 4 - Diagnostics des metadonnees de requete
+
+Objectif: verifier ce que l'API conserve des headers forwarded.
+
+```powershell
+$BaseUrl = 'http://localhost:5110'
+$headers = @{ 'X-Forwarded-Host' = 'app.example.local'; 'X-Forwarded-Proto' = 'https' }
+Invoke-RestMethod -Uri "$BaseUrl/secure/diagnostics/request-meta" -Method Get -Headers $headers
+```
+
+Resultat attendu: JSON de diagnostic avec `resolved.Valid` et details de resolution.
+
+## Etape 5 - Option Docker compose (perimetre local)
+
+Objectif: executer le scenario proxy + application.
+
+```powershell
+Set-Location .\10\infra
+docker compose up -d
+```
+
+Check:
+
+```powershell
+docker compose ps
+```
+
+Resultat attendu: services `Up`.
+
+## Etape 6 - Executer les tests
+
+Objectif: valider automatiquement les regles perimetriques.
+
+```powershell
+Set-Location .\10
+dotnet test .\PerimeterValidationLab.Tests\PerimeterValidationLab.Tests.csproj
+```
+
+Resultat attendu: tests `Passed`.
+
+## Verifications
+
+- Les endpoints `secure/*` n'acceptent pas aveuglement `X-Forwarded-*`
+- Tenant resolution durcie
+- Diagnostics exploitables pour audit perimetrique
+
+## Depannage
+
+- Si Docker indisponible, ignorer l'etape 5 (optionnelle).
+- Si endpoint secure rejette tout, verifier headers et host attendus dans la policy.
+
+## Nettoyage / Reset
+
+```powershell
+# Dans le terminal API
+# Ctrl+C
+
+Set-Location .\10
+Set-Location .\infra
+docker compose down
+
+Set-Location ..
+dotnet clean .\Atelier10.slnx
 ```
 
 ## Diagramme Mermaid
 
 ```mermaid
-graph TD
-  N1[Client] --> N2[Reverse proxy]
-  N2 --> N3[Application]
-  N3 --> N4{Mode}
-  N4 -- Vulnerable --> N5[Trust forwarded headers]
-  N5 --> N6[Poisoned link or tenant spoof]
-  N4 -- Secure --> N7[Trusted proxy check]
-  N7 --> N8[Host allowlist]
-  N8 --> N9[Https enforcement]
-  N9 --> N10[Canonical origin]
+flowchart TD
+    A[Client headers] --> B[Trusted proxy policy]
+    B --> C[Origin resolution]
+    C --> D[Tenant validation]
+    D --> E[Secure endpoint response]
 ```
