@@ -1,0 +1,25 @@
+@BasicAuthWorkshop_HostAddress = http://localhost:5098
+
+GET {{BasicAuthWorkshop_HostAddress}}/
+Accept: application/json
+
+###
+
+GET {{BasicAuthWorkshop_HostAddress}}/public
+Accept: application/json
+
+###
+
+# alice:P@ssw0rd! -> YWxpY2U6UEBzc3cwcmQh
+GET {{BasicAuthWorkshop_HostAddress}}/secure/profile
+Authorization: Basic YWxpY2U6UEBzc3cwcmQh
+Accept: application/json
+
+###
+
+# bob:Admin123! -> Ym9iOkFkbWluMTIzIQ==
+GET {{BasicAuthWorkshop_HostAddress}}/secure/admin
+Authorization: Basic Ym9iOkFkbWluMTIzIQ==
+Accept: application/json
+
+###

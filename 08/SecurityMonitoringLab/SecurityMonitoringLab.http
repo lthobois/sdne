@@ -1,0 +1,58 @@
+@SecurityMonitoringLab_HostAddress = http://localhost:5297
+
+GET {{SecurityMonitoringLab_HostAddress}}/
+Accept: application/json
+
+###
+
+POST {{SecurityMonitoringLab_HostAddress}}/vuln/login
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "bad-password"
+}
+
+###
+
+POST {{SecurityMonitoringLab_HostAddress}}/secure/login
+X-Correlation-ID: req-12345
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "bad-password"
+}
+
+###
+
+POST {{SecurityMonitoringLab_HostAddress}}/secure/login
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "Password123!"
+}
+
+###
+
+GET {{SecurityMonitoringLab_HostAddress}}/secure/audit/events
+Accept: application/json
+
+###
+
+GET {{SecurityMonitoringLab_HostAddress}}/secure/alerts
+Accept: application/json
+
+###
+
+POST {{SecurityMonitoringLab_HostAddress}}/secure/admin/reset-alerts
+Accept: application/json
+
+###
+
+POST {{SecurityMonitoringLab_HostAddress}}/secure/admin/reset-alerts
+X-SOC-Key: soc-admin-key
+Accept: application/json
+
+###

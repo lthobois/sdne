@@ -1,0 +1,36 @@
+name: Security CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-test-sast:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 05
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Restore
+        run: dotnet restore ./Atelier05.slnx
+
+      - name: Build
+        run: dotnet build ./Atelier05.slnx --no-restore
+
+      - name: Test
+        run: dotnet test ./Atelier05.slnx --no-build --verbosity normal
+
+      - name: Dependency Scan
+        run: |
+          dotnet list ./SecurityValidationLab/SecurityValidationLab.csproj package --vulnerable --include-transitive
+          dotnet list ./SecurityValidationLab.Tests/SecurityValidationLab.Tests.csproj package --vulnerable --include-transitive

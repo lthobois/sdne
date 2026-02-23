@@ -1,0 +1,145 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": ".NET Launch 01 - BasicAuthWorkshop",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/01/BasicAuthWorkshop/bin/Debug/net9.0/BasicAuthWorkshop.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/01/BasicAuthWorkshop",
+      "stopAtEntry": false,
+      "console": "integratedTerminal",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    {
+      "name": ".NET Launch 02 - AppSecWorkshop02",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/02/AppSecWorkshop02/bin/Debug/net9.0/AppSecWorkshop02.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/02/AppSecWorkshop02",
+      "stopAtEntry": false,
+      "console": "integratedTerminal",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    {
+      "name": ".NET Launch 03 - AppSecWorkshop03",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/03/AppSecWorkshop03/bin/Debug/net9.0/AppSecWorkshop03.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/03/AppSecWorkshop03",
+      "stopAtEntry": false,
+      "console": "integratedTerminal",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    {
+      "name": ".NET Launch 04 - AppSecWorkshop04",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/04/AppSecWorkshop04/bin/Debug/net9.0/AppSecWorkshop04.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/04/AppSecWorkshop04",
+      "stopAtEntry": false,
+      "console": "integratedTerminal",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    {
+      "name": ".NET Launch 05 - SecurityValidationLab",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/05/SecurityValidationLab/bin/Debug/net9.0/SecurityValidationLab.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/05/SecurityValidationLab",
+      "stopAtEntry": false,
+      "console": "integratedTerminal",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    {
+      "name": ".NET Launch 06 - SupplyChainSecurityLab",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/06/SupplyChainSecurityLab/bin/Debug/net9.0/SupplyChainSecurityLab.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/06/SupplyChainSecurityLab",
+      "stopAtEntry": false,
+      "console": "integratedTerminal",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    {
+      "name": ".NET Launch 07 - ExposureDefenseLab",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/07/ExposureDefenseLab/bin/Debug/net9.0/ExposureDefenseLab.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/07/ExposureDefenseLab",
+      "stopAtEntry": false,
+      "console": "integratedTerminal",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    {
+      "name": ".NET Launch 08 - SecurityMonitoringLab",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/08/SecurityMonitoringLab/bin/Debug/net9.0/SecurityMonitoringLab.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/08/SecurityMonitoringLab",
+      "stopAtEntry": false,
+      "console": "integratedTerminal",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    {
+      "name": ".NET Launch 09 - AuthzHardeningLab",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/09/AuthzHardeningLab/bin/Debug/net9.0/AuthzHardeningLab.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/09/AuthzHardeningLab",
+      "stopAtEntry": false,
+      "console": "integratedTerminal",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    {
+      "name": ".NET Launch 10 - PerimeterValidationLab",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/10/PerimeterValidationLab/bin/Debug/net9.0/PerimeterValidationLab.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/10/PerimeterValidationLab",
+      "stopAtEntry": false,
+      "console": "integratedTerminal",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  ]
+}

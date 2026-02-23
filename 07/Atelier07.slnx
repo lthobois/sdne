@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ExposureDefenseLab.Tests/ExposureDefenseLab.Tests.csproj" />
+  <Project Path="ExposureDefenseLab/ExposureDefenseLab.csproj" />
+</Solution>

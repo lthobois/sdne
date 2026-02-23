@@ -1,0 +1,74 @@
+@AppSecWorkshop03_HostAddress = http://localhost:5156
+@secureToken = replace_after_secure_login
+
+GET {{AppSecWorkshop03_HostAddress}}/
+Accept: application/json
+
+###
+
+POST {{AppSecWorkshop03_HostAddress}}/vuln/session/login
+Content-Type: application/json
+
+{
+  "username": "alice"
+}
+
+###
+
+# Exemple token previsible pour alice: YWxpY2U6d29ya3Nob3Atc2Vzc2lvbg==
+GET {{AppSecWorkshop03_HostAddress}}/vuln/session/profile?token=YWxpY2U6d29ya3Nob3Atc2Vzc2lvbg==
+Accept: application/json
+
+###
+
+POST {{AppSecWorkshop03_HostAddress}}/secure/session/login
+Content-Type: application/json
+
+{
+  "username": "alice"
+}
+
+###
+
+GET {{AppSecWorkshop03_HostAddress}}/secure/session/profile
+X-Session-Token: {{secureToken}}
+Accept: application/json
+
+###
+
+POST {{AppSecWorkshop03_HostAddress}}/vuln/deserialization/execute
+Content-Type: application/json
+
+{
+  "$type": "AppSecWorkshop03.Serialization.DangerousAction, AppSecWorkshop03",
+  "FileName": "owned-by-deserialization.txt",
+  "Content": "Payload deserialize"
+}
+
+###
+
+POST {{AppSecWorkshop03_HostAddress}}/secure/deserialization/execute
+Content-Type: application/json
+
+{
+  "action": "echo",
+  "message": "safe payload"
+}
+
+###
+
+# alice accede a une commande de charlie (IDOR).
+GET {{AppSecWorkshop03_HostAddress}}/vuln/idor/orders/1002?username=alice
+Accept: application/json
+
+###
+
+GET {{AppSecWorkshop03_HostAddress}}/secure/idor/orders/1002?username=alice
+Accept: application/json
+
+###
+
+GET {{AppSecWorkshop03_HostAddress}}/secure/idor/orders/1002?username=bob
+Accept: application/json
+
+###

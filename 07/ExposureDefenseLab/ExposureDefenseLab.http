@@ -1,0 +1,65 @@
+@ExposureDefenseLab_HostAddress = http://localhost:5155
+
+GET {{ExposureDefenseLab_HostAddress}}/
+Accept: application/json
+
+###
+
+GET {{ExposureDefenseLab_HostAddress}}/vuln/admin/ping
+Accept: application/json
+
+###
+
+GET {{ExposureDefenseLab_HostAddress}}/secure/admin/ping
+Accept: application/json
+
+###
+
+GET {{ExposureDefenseLab_HostAddress}}/secure/admin/ping
+X-Admin-Key: workshop-admin-key
+Accept: application/json
+
+###
+
+GET {{ExposureDefenseLab_HostAddress}}/vuln/search?q=<script>alert(1)</script>
+Accept: application/json
+
+###
+
+GET {{ExposureDefenseLab_HostAddress}}/secure/search?q=<script>alert(1)</script>
+Accept: application/json
+
+###
+
+POST {{ExposureDefenseLab_HostAddress}}/vuln/upload/meta
+Content-Type: application/json
+
+{
+  "fileName": "payload.exe",
+  "contentType": "application/x-msdownload",
+  "size": 1000
+}
+
+###
+
+POST {{ExposureDefenseLab_HostAddress}}/secure/upload/meta
+Content-Type: application/json
+
+{
+  "fileName": "payload.exe",
+  "contentType": "application/x-msdownload",
+  "size": 1000
+}
+
+###
+
+POST {{ExposureDefenseLab_HostAddress}}/secure/upload/meta
+Content-Type: application/json
+
+{
+  "fileName": "document.pdf",
+  "contentType": "application/pdf",
+  "size": 34567
+}
+
+###

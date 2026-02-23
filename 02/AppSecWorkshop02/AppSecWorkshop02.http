@@ -1,0 +1,68 @@
+@AppSecWorkshop02_HostAddress = http://localhost:5142
+@csrf = replace_after_login
+
+GET {{AppSecWorkshop02_HostAddress}}/
+Accept: application/json
+
+###
+
+# SQL Injection: renvoie plusieurs lignes avec payload "' OR 1=1 --"
+GET {{AppSecWorkshop02_HostAddress}}/vuln/sql/users?username=' OR 1=1 --
+Accept: application/json
+
+###
+
+GET {{AppSecWorkshop02_HostAddress}}/secure/sql/users?username=' OR 1=1 --
+Accept: application/json
+
+###
+
+GET {{AppSecWorkshop02_HostAddress}}/vuln/xss?input=<script>alert('xss')</script>
+Accept: text/html
+
+###
+
+GET {{AppSecWorkshop02_HostAddress}}/secure/xss?input=<script>alert('xss')</script>
+Accept: text/html
+
+###
+
+POST {{AppSecWorkshop02_HostAddress}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "alice"
+}
+
+###
+
+POST {{AppSecWorkshop02_HostAddress}}/vuln/csrf/transfer
+Content-Type: application/json
+
+{
+  "to": "mallory",
+  "amount": 100
+}
+
+###
+
+POST {{AppSecWorkshop02_HostAddress}}/secure/csrf/transfer
+Content-Type: application/json
+X-CSRF-Token: {{csrf}}
+
+{
+  "to": "mallory",
+  "amount": 100
+}
+
+###
+
+GET {{AppSecWorkshop02_HostAddress}}/vuln/ssrf/fetch?url=http://example.com
+Accept: application/json
+
+###
+
+GET {{AppSecWorkshop02_HostAddress}}/secure/ssrf/fetch?url=http://localhost:5142
+Accept: application/json
+
+###

@@ -1,0 +1,72 @@
+@AppSecWorkshop04_HostAddress = http://localhost:5076
+
+GET {{AppSecWorkshop04_HostAddress}}/
+Accept: application/json
+
+###
+
+POST {{AppSecWorkshop04_HostAddress}}/vuln/register
+Content-Type: application/json
+
+{
+  "username": "aa",
+  "password": "1234"
+}
+
+###
+
+POST {{AppSecWorkshop04_HostAddress}}/secure/register
+Content-Type: application/json
+
+{
+  "username": "aa",
+  "password": "1234"
+}
+
+###
+
+POST {{AppSecWorkshop04_HostAddress}}/secure/register
+Content-Type: application/json
+
+{
+  "username": "alice.secure",
+  "password": "S3cure!Password"
+}
+
+###
+
+# Path traversal (Windows) exemple: ..\\..\\appsettings.json
+GET {{AppSecWorkshop04_HostAddress}}/vuln/files/read?path=..\\..\\appsettings.json
+Accept: application/json
+
+###
+
+GET {{AppSecWorkshop04_HostAddress}}/secure/files/read?fileName=public-note.txt
+Accept: application/json
+
+###
+
+GET {{AppSecWorkshop04_HostAddress}}/secure/files/read?fileName=..\\..\\appsettings.json
+Accept: application/json
+
+###
+
+GET {{AppSecWorkshop04_HostAddress}}/vuln/redirect?returnUrl=https://evil.example/phishing
+Accept: application/json
+
+###
+
+GET {{AppSecWorkshop04_HostAddress}}/secure/redirect?returnUrl=/dashboard
+Accept: application/json
+
+###
+
+GET {{AppSecWorkshop04_HostAddress}}/secure/redirect?returnUrl=https://evil.example/phishing
+Accept: application/json
+
+###
+
+GET {{AppSecWorkshop04_HostAddress}}/secure/errors/divide-by-zero
+Accept: application/json
+
+###

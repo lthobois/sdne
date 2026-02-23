@@ -1,0 +1,64 @@
+@SupplyChainSecurityLab_HostAddress = http://localhost:5062
+
+GET {{SupplyChainSecurityLab_HostAddress}}/
+Accept: application/json
+
+###
+
+GET {{SupplyChainSecurityLab_HostAddress}}/vuln/config/secret
+Accept: application/json
+
+###
+
+GET {{SupplyChainSecurityLab_HostAddress}}/secure/config/secret
+Accept: application/json
+
+###
+
+GET {{SupplyChainSecurityLab_HostAddress}}/vuln/outbound/fetch?url=http://example.com
+Accept: application/json
+
+###
+
+GET {{SupplyChainSecurityLab_HostAddress}}/secure/outbound/fetch?url=http://example.com
+Accept: application/json
+
+###
+
+GET {{SupplyChainSecurityLab_HostAddress}}/secure/outbound/fetch?url=https://jsonplaceholder.typicode.com/todos/1
+Accept: application/json
+
+###
+
+POST {{SupplyChainSecurityLab_HostAddress}}/vuln/dependency/approve
+Content-Type: application/json
+
+{
+  "packageId": "Evil.Package",
+  "sourceUrl": "https://evil.example/feed/pkg.nupkg",
+  "sha256": "1234"
+}
+
+###
+
+POST {{SupplyChainSecurityLab_HostAddress}}/secure/dependency/approve
+Content-Type: application/json
+
+{
+  "packageId": "Evil.Package",
+  "sourceUrl": "https://evil.example/feed/pkg.nupkg",
+  "sha256": "1234"
+}
+
+###
+
+POST {{SupplyChainSecurityLab_HostAddress}}/secure/dependency/approve
+Content-Type: application/json
+
+{
+  "packageId": "Polly",
+  "sourceUrl": "https://api.nuget.org/v3/index.json",
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+
+###

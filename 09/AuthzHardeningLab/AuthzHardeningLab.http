@@ -1,0 +1,55 @@
+@AuthzHardeningLab_HostAddress = http://localhost:5128
+@aliceReadToken = paste_secure_token_here
+@bobPublishToken = paste_secure_token_here
+
+GET {{AuthzHardeningLab_HostAddress}}/
+Accept: application/json
+
+###
+
+POST {{AuthzHardeningLab_HostAddress}}/vuln/auth/token
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "scope": "docs.read"
+}
+
+###
+
+POST {{AuthzHardeningLab_HostAddress}}/secure/auth/token
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "scope": "docs.read"
+}
+
+###
+
+GET {{AuthzHardeningLab_HostAddress}}/vuln/docs/2?username=alice
+Accept: application/json
+
+###
+
+GET {{AuthzHardeningLab_HostAddress}}/secure/docs/2
+Authorization: Bearer {{aliceReadToken}}
+Accept: application/json
+
+###
+
+POST {{AuthzHardeningLab_HostAddress}}/secure/auth/token
+Content-Type: application/json
+
+{
+  "username": "bob",
+  "scope": "docs.read docs.publish"
+}
+
+###
+
+POST {{AuthzHardeningLab_HostAddress}}/secure/docs/2/publish
+Authorization: Bearer {{bobPublishToken}}
+Accept: application/json
+
+###
