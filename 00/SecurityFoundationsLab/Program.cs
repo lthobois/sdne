@@ -40,11 +40,6 @@ app.MapGet("/", () => Results.Ok(new
 
 app.MapGet("/runtime/stack-depth", (int depth) =>
 {
-    if (depth < 0 || depth > 200)
-    {
-        return Results.BadRequest(new { error = "depth doit etre entre 0 et 200." });
-    }
-
     var frames = CountFrames(depth);
     return Results.Ok(new
     {

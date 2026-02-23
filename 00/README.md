@@ -65,7 +65,7 @@ Code source a observer:
 ```powershell
 $BaseUrl = 'http://localhost:5100'
 Invoke-RestMethod -Uri "$BaseUrl/runtime/stack-depth?depth=20" -Method Get
-Invoke-RestMethod -Uri "$BaseUrl/runtime/stack-depth?depth=120" -Method Get
+Invoke-RestMethod -Uri "$BaseUrl/runtime/stack-depth?depth=200000" -Method Get
 ```
 
 Resultat attendu: `observedFrames` augmente avec `depth`.
