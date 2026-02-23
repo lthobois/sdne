@@ -1,5 +1,9 @@
 ﻿# Atelier 01 - HTTP Basic Auth (.NET Framework 4.8)
 
+## Mode compatibilite NET48
+
+Cette variante est executable en .NET Framework 4.8 avec un hote HTTP de compatibilite. Les routes des ateliers NET10 sont reprises (methodes + chemins), avec des comportements vulnerables/securises reproduits en mode pedagogique net48.
+
 ## Pre-requis
 
 - Etre positionne a la racine du depot `sdne`
@@ -149,6 +153,9 @@ flowchart TD
     B --> D[Secure profile]
     B --> E[Secure admin role check]
 ```
+
+
+
 
 
 

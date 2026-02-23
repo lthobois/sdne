@@ -1,5 +1,9 @@
 ﻿# Atelier 00 - Rappels securite applicative .NET (.NET Framework 4.8)
 
+## Mode compatibilite NET48
+
+Cette variante est executable en .NET Framework 4.8 avec un hote HTTP de compatibilite. Les routes des ateliers NET10 sont reprises (methodes + chemins), avec des comportements vulnerables/securises reproduits en mode pedagogique net48.
+
 ## Pre-requis
 
 - Etre positionne a la racine du depot `sdne`
@@ -268,6 +272,9 @@ flowchart TD
     D --> E[DLL path validation demo]
     E --> F[Assembly integrity demo]
 ```
+
+
+
 
 
 

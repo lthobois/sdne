@@ -1,5 +1,9 @@
 ﻿# Atelier 09 - Durcissement AuthN/AuthZ (.NET Framework 4.8)
 
+## Mode compatibilite NET48
+
+Cette variante est executable en .NET Framework 4.8 avec un hote HTTP de compatibilite. Les routes des ateliers NET10 sont reprises (methodes + chemins), avec des comportements vulnerables/securises reproduits en mode pedagogique net48.
+
 ## Pre-requis
 
 - Etre positionne a la racine du depot `sdne`
@@ -150,6 +154,13 @@ flowchart LR
 
 
 
+
+
+
+
+## Tests NET48
+
+Les tests fournis sur cette piste sont des smoke tests de validation d'execution (build + runner).
 
 
 

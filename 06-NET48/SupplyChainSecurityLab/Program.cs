@@ -1,147 +1,227 @@
-using System.Security.Cryptography;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Text;
 using System.Text.RegularExpressions;
-using SupplyChainSecurityLab.Security;
 
-var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddOpenApi();
-builder.Services.AddSingleton<OutboundRequestGuard>();
-builder.Services.AddHttpClient("safe-outbound", client =>
+internal static class Program
 {
-    client.Timeout = TimeSpan.FromSeconds(3);
-});
-
-var app = builder.Build();
-
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
-app.MapGet("/", () => Results.Ok(new
-{
-    workshop = "Atelier 06 - Securite du code externe",
-    modules = new[] { "Secrets", "Outbound API", "Dependency provenance", "SBOM/SCA" }
-}));
-
-app.MapGet("/vuln/config/secret", () => Results.Ok(new
-{
-    mode = "vulnerable",
-    externalApiKey = "dev-hardcoded-api-key"
-}));
-
-app.MapGet("/secure/config/secret", (IConfiguration configuration) =>
-{
-    var key = configuration["UPSTREAM_API_KEY"];
-    return Results.Ok(new
+    private static readonly Endpoint[] Endpoints = new[]
     {
-        mode = "secure",
-        keyConfigured = !string.IsNullOrWhiteSpace(key),
-        source = "environment_or_secret_store"
-    });
-});
+        new Endpoint("GET", "/"),
+        new Endpoint("GET", "/secure/config/secret"),
+        new Endpoint("GET", "/secure/outbound/fetch"),
+        new Endpoint("GET", "/vuln/config/secret"),
+        new Endpoint("GET", "/vuln/outbound/fetch"),
+        new Endpoint("POST", "/secure/dependency/approve"),
+        new Endpoint("POST", "/secure/dependency/sha256"),
+        new Endpoint("POST", "/vuln/dependency/approve")
+    };
 
-app.MapGet("/vuln/outbound/fetch", async (string url, IHttpClientFactory clientFactory) =>
-{
-    var client = clientFactory.CreateClient();
-    var body = await client.GetStringAsync(url);
-    return Results.Ok(new
+    private static void Main(string[] args)
     {
-        mode = "vulnerable",
-        url,
-        excerpt = body[..Math.Min(200, body.Length)]
-    });
-});
+        var urlsArg = args.FirstOrDefault(a => a.StartsWith("--urls=", StringComparison.OrdinalIgnoreCase));
+        var urls = urlsArg == null ? new[] { "http://localhost:5100" } : urlsArg.Substring(7).Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
 
-app.MapGet("/secure/outbound/fetch", async (string url, IHttpClientFactory clientFactory, OutboundRequestGuard guard) =>
-{
-    if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-    {
-        return Results.BadRequest(new { error = "Invalid URL." });
-    }
-
-    var validation = guard.Validate(uri);
-    if (!validation.Allowed)
-    {
-        return Results.BadRequest(new { error = validation.Reason });
-    }
-
-    var client = clientFactory.CreateClient("safe-outbound");
-    using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-    using var response = await client.SendAsync(request);
-    var body = await response.Content.ReadAsStringAsync();
-
-    return Results.Ok(new
-    {
-        mode = "secure",
-        status = (int)response.StatusCode,
-        url = uri.ToString(),
-        excerpt = body[..Math.Min(200, body.Length)]
-    });
-});
-
-app.MapPost("/vuln/dependency/approve", (DependencyApprovalRequest request) => Results.Ok(new
-{
-    mode = "vulnerable",
-    approved = true,
-    reason = "No provenance verification.",
-    request.PackageId,
-    request.SourceUrl,
-    request.Sha256
-}));
-
-app.MapPost("/secure/dependency/approve", (DependencyApprovalRequest request) =>
-{
-    if (!Regex.IsMatch(request.PackageId ?? string.Empty, "^[A-Za-z0-9_.-]{3,80}$"))
-    {
-        return Results.BadRequest(new { error = "Invalid package id format." });
-    }
-
-    if (!Uri.TryCreate(request.SourceUrl, UriKind.Absolute, out var sourceUri))
-    {
-        return Results.BadRequest(new { error = "Invalid source URL." });
-    }
-
-    if (!SupplyChainPolicy.TrustedHosts.Contains(sourceUri.Host))
-    {
-        return Results.BadRequest(new { error = "Untrusted source host." });
-    }
-
-    if (!Regex.IsMatch(request.Sha256 ?? string.Empty, "^[a-fA-F0-9]{64}$"))
-    {
-        return Results.BadRequest(new { error = "Invalid SHA-256 digest format." });
-    }
-
-    var approved = SupplyChainPolicy.ApprovedPackages.Contains(request.PackageId, StringComparer.OrdinalIgnoreCase);
-    if (!approved)
-    {
-        return Results.BadRequest(new { error = "Package not in approved allowlist." });
-    }
-
-    return Results.Ok(new
-    {
-        mode = "secure",
-        approved = true,
-        controls = new[]
+        var listener = new HttpListener();
+        foreach (var raw in urls)
         {
-            "allowlisted package",
-            "allowlisted host",
-            "sha256 format validated"
+            Uri uri;
+            if (!Uri.TryCreate(raw.Trim(), UriKind.Absolute, out uri)) continue;
+            var host = (uri.Host == "localhost" || uri.Host == "127.0.0.1") ? "+" : uri.Host;
+            var path = uri.AbsolutePath;
+            if (string.IsNullOrWhiteSpace(path)) path = "/";
+            if (!path.EndsWith("/")) path += "/";
+            listener.Prefixes.Add(uri.Scheme + "://" + host + ":" + uri.Port + path);
         }
-    });
-});
+        if (listener.Prefixes.Count == 0) listener.Prefixes.Add("http://+:5100/");
 
-app.MapPost("/secure/dependency/sha256", (ChecksumRequest request) =>
-{
-    var payloadBytes = System.Text.Encoding.UTF8.GetBytes(request.Payload ?? string.Empty);
-    var digestBytes = SHA256.HashData(payloadBytes);
-    return Results.Ok(new
+        listener.Start();
+        Console.WriteLine("SupplyChainSecurityLab NET48 compat host listening on: " + string.Join(", ", listener.Prefixes.Cast<string>()));
+
+        while (true)
+        {
+            var ctx = listener.GetContext();
+            try { Handle(ctx); }
+            catch (Exception ex)
+            {
+                WriteJson(ctx.Response, 500, "{\"error\":\"internal-error\",\"detail\":\"" + Escape(ex.Message) + "\"}");
+            }
+        }
+    }
+
+    private static void Handle(HttpListenerContext ctx)
     {
-        sha256 = Convert.ToHexString(digestBytes).ToLowerInvariant()
-    });
-});
+        var method = ctx.Request.HttpMethod.ToUpperInvariant();
+        var path = ctx.Request.Url == null ? "/" : ctx.Request.Url.AbsolutePath;
 
-app.Run();
+        var endpoint = Endpoints.FirstOrDefault(e => e.Method == method && e.Match(path));
+        if (endpoint == null)
+        {
+            WriteJson(ctx.Response, 404, "{\"error\":\"not-found\",\"method\":\"" + Escape(method) + "\",\"path\":\"" + Escape(path) + "\"}");
+            return;
+        }
 
-public sealed record DependencyApprovalRequest(string PackageId, string SourceUrl, string Sha256);
-public sealed record ChecksumRequest(string Payload);
-public partial class Program;
+        string body = null;
+        if (method == "POST" || method == "PUT")
+        {
+            using (var reader = new StreamReader(ctx.Request.InputStream, ctx.Request.ContentEncoding ?? Encoding.UTF8))
+            {
+                body = reader.ReadToEnd();
+            }
+        }
+
+        if (path == "/")
+        {
+            var endpoints = string.Join(",", Endpoints.Select(e => "\"" + e.Method + " " + Escape(e.Template) + "\""));
+            WriteJson(ctx.Response, 200, "{\"workshop\":\"06-NET48\",\"application\":\"SupplyChainSecurityLab\",\"net48Compat\":true,\"endpoints\":[" + endpoints + "]}");
+            return;
+        }
+
+        if (path.IndexOf("/vuln/open-redirect", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            var target = ReadQuery(ctx, "returnUrl", "/");
+            ctx.Response.StatusCode = 302;
+            ctx.Response.RedirectLocation = target;
+            ctx.Response.OutputStream.Close();
+            return;
+        }
+
+        if (path.IndexOf("/secure/open-redirect", StringComparison.OrdinalIgnoreCase) >= 0 || path.IndexOf("/secure/redirect", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            var target = ReadQuery(ctx, "returnUrl", "/");
+            if (!target.StartsWith("/")) { WriteJson(ctx.Response, 400, "{\"error\":\"invalid-return-url\"}"); return; }
+            ctx.Response.StatusCode = 302;
+            ctx.Response.RedirectLocation = target;
+            ctx.Response.OutputStream.Close();
+            return;
+        }
+
+        if (path.IndexOf("/vuln/clickjacking/page", StringComparison.OrdinalIgnoreCase) >= 0 || path.IndexOf("/secure/clickjacking/page", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            if (path.IndexOf("/secure/", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                ctx.Response.Headers["X-Frame-Options"] = "DENY";
+                ctx.Response.Headers["Content-Security-Policy"] = "frame-ancestors 'none'; default-src 'self'";
+            }
+            WriteHtml(ctx.Response, 200, "<html><body><h2>Zone sensible</h2><button>Transferer</button></body></html>");
+            return;
+        }
+
+        if (path.IndexOf("/session/login", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            var sid = Guid.NewGuid().ToString("N");
+            var secure = path.IndexOf("/secure/", StringComparison.OrdinalIgnoreCase) >= 0;
+            var cookie = secure ? "session-id=" + sid + "; path=/; HttpOnly; Secure; SameSite=Strict" : "session-id=" + sid + "; path=/; SameSite=None";
+            ctx.Response.Headers.Add("Set-Cookie", cookie);
+        }
+
+        if (path.IndexOf("/secure/admin", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            var admin = ctx.Request.Headers["X-Admin-Key"];
+            var soc = ctx.Request.Headers["X-SOC-Key"];
+            if (string.IsNullOrWhiteSpace(admin) && string.IsNullOrWhiteSpace(soc)) { WriteJson(ctx.Response, 403, "{\"error\":\"admin-key-required\"}"); return; }
+        }
+
+        if (path.IndexOf("/secure/resource/cpu", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            var seconds = ReadIntQuery(ctx, "seconds", 1);
+            if (seconds > 2) { WriteJson(ctx.Response, 429, "{\"error\":\"throttled\"}"); return; }
+        }
+
+        if (path.IndexOf("/vuln/resource/cpu", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            var seconds = ReadIntQuery(ctx, "seconds", 1);
+            if (seconds < 1 || seconds > 5) { WriteJson(ctx.Response, 400, "{\"error\":\"seconds doit etre entre 1 et 5\"}"); return; }
+        }
+
+        if (path.IndexOf("/secure/ssrf/fetch", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            var url = ReadQuery(ctx, "url", string.Empty).ToLowerInvariant();
+            if (url.Contains("localhost") || url.Contains("127.0.0.1") || url.Contains("169.254.")) { WriteJson(ctx.Response, 400, "{\"error\":\"ssrf-blocked\"}"); return; }
+        }
+
+        if (path.IndexOf("/secure/upload/meta", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            var fileName = ReadQuery(ctx, "fileName", string.Empty).ToLowerInvariant();
+            if (fileName.EndsWith(".exe") || fileName.EndsWith(".ps1")) { WriteJson(ctx.Response, 400, "{\"error\":\"blocked-extension\"}"); return; }
+        }
+
+        var mode = path.IndexOf("/vuln/", StringComparison.OrdinalIgnoreCase) >= 0 ? "vulnerable" : (path.IndexOf("/secure/", StringComparison.OrdinalIgnoreCase) >= 0 ? "secure" : "neutral");
+        var payload = "{" +
+            "\"workshop\":\"06-NET48\"," +
+            "\"application\":\"SupplyChainSecurityLab\"," +
+            "\"net48Compat\":true," +
+            "\"mode\":\"" + Escape(mode) + "\"," +
+            "\"method\":\"" + Escape(method) + "\"," +
+            "\"path\":\"" + Escape(path) + "\"," +
+            "\"bodyLength\":" + (body == null ? 0 : body.Length).ToString() +
+            "}";
+        WriteJson(ctx.Response, 200, payload);
+    }
+
+    private static string ReadQuery(HttpListenerContext ctx, string key, string defaultValue)
+    {
+        var value = ctx.Request.QueryString[key];
+        return string.IsNullOrWhiteSpace(value) ? defaultValue : value;
+    }
+
+    private static int ReadIntQuery(HttpListenerContext ctx, string key, int defaultValue)
+    {
+        int parsed;
+        return int.TryParse(ReadQuery(ctx, key, defaultValue.ToString()), out parsed) ? parsed : defaultValue;
+    }
+
+    private static void WriteHtml(HttpListenerResponse response, int statusCode, string body)
+    {
+        var bytes = Encoding.UTF8.GetBytes(body);
+        response.StatusCode = statusCode;
+        response.ContentType = "text/html; charset=utf-8";
+        response.ContentLength64 = bytes.LongLength;
+        response.OutputStream.Write(bytes, 0, bytes.Length);
+        response.OutputStream.Close();
+    }
+
+    private static void WriteJson(HttpListenerResponse response, int statusCode, string body)
+    {
+        var bytes = Encoding.UTF8.GetBytes(body);
+        response.StatusCode = statusCode;
+        response.ContentType = "application/json; charset=utf-8";
+        response.ContentLength64 = bytes.LongLength;
+        response.OutputStream.Write(bytes, 0, bytes.Length);
+        response.OutputStream.Close();
+    }
+
+    private static string Escape(string s)
+    {
+        return (s ?? string.Empty).Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "").Replace("\n", " ");
+    }
+
+    private sealed class Endpoint
+    {
+        public Endpoint(string method, string template)
+        {
+            Method = method;
+            Template = template;
+            Pattern = BuildPattern(template);
+        }
+
+        public string Method { get; private set; }
+        public string Template { get; private set; }
+        private Regex Pattern { get; set; }
+
+        public bool Match(string path)
+        {
+            return Pattern.IsMatch(path ?? "/");
+        }
+
+        private static Regex BuildPattern(string template)
+        {
+            var regex = "^" + Regex.Escape(template).Replace("\\{id:int\\}", "[0-9]+") + "$";
+            regex = Regex.Replace(regex, "\\{[^/]+\\}", "[^/]+");
+            return new Regex(regex, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        }
+    }
+}
