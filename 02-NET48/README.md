@@ -91,13 +91,14 @@ Invoke-RestMethod -Uri "$BaseUrl/vuln/ssrf/fetch?url=$([uri]::EscapeDataString('
 try { Invoke-RestMethod -Uri "$BaseUrl/secure/ssrf/fetch?url=$([uri]::EscapeDataString('http://127.0.0.1:80'))" -Method Get -ErrorAction Stop } catch { $_.Exception.Response.StatusCode.value__ }
 ```
 
-## Etape 7 - Tests atelier
+## Etape 7 - Validation atelier
 
 Code source a verifier (etape):
-- `02-NET48/AppSecWorkshop02.Tests/SmokeTests.cs:5`
+- `02-NET48/AppSecWorkshop02/Program.cs:186`
+- `02-NET48/Atelier02.slnx:1`
 
 ```powershell
-dotnet test .\02-NET48\Atelier02.slnx
+dotnet build .\02-NET48\Atelier02.slnx
 ```
 
 ## Scripts stagiaires (support)

@@ -1,29 +1,14 @@
-# Agent Context - README Policy
+# Agent Context - README & Code Policy
 
-Ce fichier definit les regles de contexte pour tout agent IA intervenant dans ce depot.
+Regles minimales pour tout agent IA sur ce depot.
 
-## Regle stricte README.md
+## 1) README d'atelier: role et structure
 
-Chaque `README.md` d'atelier est la reference pedagogique principale pour les stagiaires.
+- Le `README.md` est la reference pedagogique principale.
+- Il doit decrire l'atelier de bout en bout, sans etape critique manquante.
+- Les commandes doivent etre progressives (pas de bloc "tout-en-un").
 
-Exigences obligatoires pour chaque `README.md`:
-
-1. Le README doit contenir le deroule pedagogique complet de l'atelier, de bout en bout.
-2. Le README doit inclure les commandes pas a pas pour chaque etape.
-3. Le README doit fournir, quand c'est possible, des scripts PowerShell permettant aux stagiaires de tester simplement les actions realisees.
-4. Le README doit inclure des pointeurs explicites vers le code source concerne (fichiers precis) et vers les lignes de tests associees aux verifications de l'atelier.
-5. Chaque etape de l'atelier doit explicitement indiquer les lignes de code a verifier pour cette etape (references fichier + ligne), pour garantir la lecture pedagogique progressive.
-
-Contraintes obligatoires:
-
-1. Interdiction des blocs "tout-en-un" qui executent l'atelier en un seul coup.
-2. Les instructions doivent etre progressives, claires, et directement exploitables par des stagiaires.
-3. Aucune etape critique ne doit etre omise du README.
-4. Une section globale "lignes de code a verifier" ne suffit pas a elle seule: les references doivent aussi apparaitre dans chaque etape concernee.
-5. Les appels de scripts PowerShell documentes dans les README doivent etre ecrits en chemins relatifs depuis la racine du depot (ex: `.\01-NET10\scripts\calls.ps1`), et non depuis un sous-repertoire d'atelier.
-
-Sections obligatoires dans chaque README d'atelier (dans cet ordre):
-
+Sections obligatoires (ordre impose):
 1. `Objectif`
 2. `Pre-requis`
 3. `Les etapes de l'atelier`
@@ -31,6 +16,44 @@ Sections obligatoires dans chaque README d'atelier (dans cet ordre):
 5. `Fichiers utiles`
 6. `Nettoyage`
 
-Objectif:
+## 2) README: exigences pedagogiques
 
-Garantir une documentation coherente, pedagogique et exploitable, sans ambiguite sur le role des README et sur le contenu attendu par les stagiaires.
+Pour chaque etape:
+- expliquer **quoi faire**, **pourquoi**, et **resultat attendu**;
+- preciser les dependances d'etat avant/apres si appels successifs;
+- indiquer les effets observables (HTTP, donnees retournees, creation/lecture/modification/suppression/controle).
+
+## 3) README: tracabilite code
+
+Chaque etape/activite doit contenir des references explicites:
+- code source: `fichier:ligne`;
+- tests lies: `fichier:ligne` (si applicables).
+
+Contraintes:
+- une section globale "code a verifier" ne suffit pas;
+- les references doivent apparaitre dans chaque etape concernee;
+- pas de logique "magique" ni comportement utilise mais non documente.
+
+## 4) Commandes PowerShell dans les README
+
+- Les scripts doivent etre appeles avec des chemins **relatifs a la racine du depot**.
+- Exemple valide: `./01-NET10/scripts/calls.ps1`.
+- Exemple invalide: appel depuis un sous-dossier atelier sans chemin racine.
+
+## 5) Lisibilite du code (endpoint-first)
+
+Principes:
+- priorite a la lisibilite pedagogique;
+- noms explicites (variables, fonctions, fichiers);
+- eviter implicite/abstraction inutile.
+
+Organisation:
+- mettre pres de l'endpoint la validation, le mapping, la logique metier simple et les appels directs;
+- n'introduire services/helpers partages que si la comprehension est meilleure;
+- toute abstraction ajoutee doit etre pedagogiquement justifiable.
+
+## 6) Objectif global
+
+Garantir un lien clair et verifiable:
+**atelier <-> commandes <-> code source <-> resultat**,
+avec un code lisible sans expertise avancee.

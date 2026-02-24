@@ -75,13 +75,14 @@ try { Invoke-RestMethod -Uri "$BaseUrl/secure/idor/orders/1002?username=alice" -
 Invoke-RestMethod -Uri "$BaseUrl/secure/idor/orders/1002?username=bob" -Method Get
 ```
 
-## Etape 6 - Tests atelier
+## Etape 6 - Validation atelier
 
 Code source a verifier (etape):
-- `03-NET48/AppSecWorkshop03.Tests/SmokeTests.cs:5`
+- `03-NET48/AppSecWorkshop03/Program.cs:108`
+- `03-NET48/Atelier03.slnx:1`
 
 ```powershell
-dotnet test .\03-NET48\Atelier03.slnx
+dotnet build .\03-NET48\Atelier03.slnx
 ```
 
 ## Scripts stagiaires (support)
