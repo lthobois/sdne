@@ -12,14 +12,15 @@ Exigences obligatoires pour chaque `README.md`:
 2. Le README doit inclure les commandes pas a pas pour chaque etape.
 3. Le README doit fournir, quand c'est possible, des scripts PowerShell permettant aux stagiaires de tester simplement les actions realisees.
 4. Le README doit inclure des pointeurs explicites vers le code source concerne (fichiers precis) et vers les lignes de tests associees aux verifications de l'atelier.
+5. Chaque etape de l'atelier doit explicitement indiquer les lignes de code a verifier pour cette etape (references fichier + ligne), pour garantir la lecture pedagogique progressive.
 
 Contraintes obligatoires:
 
 1. Interdiction des blocs "tout-en-un" qui executent l'atelier en un seul coup.
 2. Les instructions doivent etre progressives, claires, et directement exploitables par des stagiaires.
 3. Aucune etape critique ne doit etre omise du README.
+4. Une section globale "lignes de code a verifier" ne suffit pas a elle seule: les references doivent aussi apparaitre dans chaque etape concernee.
 
 Objectif:
 
 Garantir une documentation coherente, pedagogique et exploitable, sans ambiguite sur le role des README et sur le contenu attendu par les stagiaires.
-
