@@ -30,8 +30,15 @@ Resultat attendu:
 
 ## Ateliers et correspondance programme
 
+Vue rapide:
+- 11 ateliers numerotes `00` a `10`
+- Chaque atelier existe en 2 variantes: `NET10` et `NET48`
+- Meme objectif pedagogique, implementation adaptee au framework cible
+
+Correspondance detaillee:
+
 | Atelier | Dossier NET10 | Dossier NET48 | Theme principal | Modules couverts |
-|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | 00 | `00-NET10` | `00-NET48` | Rappels securite applicative | Stack/Heap, SAST/DAST, hijacking ressources, protections runtime |
 | 01 | `01-NET10` | `01-NET48` | Authentification HTTP Basic | AuthN, AuthZ role-based |
 | 02 | `02-NET10` | `02-NET48` | Vulns Web OWASP | SQLi, XSS, CSRF, SSRF |
@@ -88,7 +95,6 @@ dotnet clean .\FormationSecuriteDotNet48.sln
 Get-ChildItem -Recurse -Directory -Filter bin | Remove-Item -Recurse -Force
 Get-ChildItem -Recurse -Directory -Filter obj | Remove-Item -Recurse -Force
 ```
-
 
 
 
