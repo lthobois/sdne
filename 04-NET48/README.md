@@ -35,9 +35,8 @@ dotnet run --project .\04-NET48\AppSecWorkshop04\AppSecWorkshop04.csproj --urls=
 ## Etape 3 - Validation d'entree (register)
 
 Code source a verifier (etape):
-- `04-NET48/AppSecWorkshop04/Program.cs:37`
-- `04-NET48/AppSecWorkshop04/Program.cs:51`
-- `04-NET48/AppSecWorkshop04/Program.cs:65`
+- `04-NET48/AppSecWorkshop04/Program.cs:103`
+- `04-NET48/AppSecWorkshop04/Program.cs:115`
 
 ```powershell
 $BaseUrl = 'http://localhost:5104'
@@ -49,9 +48,8 @@ Invoke-RestMethod -Uri "$BaseUrl/secure/register" -Method Post -ContentType 'app
 ## Etape 4 - Path traversal
 
 Code source a verifier (etape):
-- `04-NET48/AppSecWorkshop04/Program.cs:83`
-- `04-NET48/AppSecWorkshop04/Program.cs:100`
-- `04-NET48/AppSecWorkshop04/Program.cs:110`
+- `04-NET48/AppSecWorkshop04/Program.cs:149`
+- `04-NET48/AppSecWorkshop04/Program.cs:165`
 
 ```powershell
 $BaseUrl = 'http://localhost:5104'
@@ -62,8 +60,8 @@ try { Invoke-RestMethod -Uri "$BaseUrl/secure/files/read?fileName=$([uri]::Escap
 ## Etape 5 - Open redirect
 
 Code source a verifier (etape):
-- `04-NET48/AppSecWorkshop04/Program.cs:124`
-- `04-NET48/AppSecWorkshop04/Program.cs:129`
+- `04-NET48/AppSecWorkshop04/Program.cs:193`
+- `04-NET48/AppSecWorkshop04/Program.cs:202`
 
 ```powershell
 $BaseUrl = 'http://localhost:5104'
@@ -75,21 +73,13 @@ Invoke-RestMethod -Uri "$BaseUrl/secure/redirect?returnUrl=$([uri]::EscapeDataSt
 ## Etape 6 - Gestion d'erreurs
 
 Code source a verifier (etape):
-- `04-NET48/AppSecWorkshop04/Program.cs:144`
-- `04-NET48/AppSecWorkshop04/Program.cs:151`
+- `04-NET48/AppSecWorkshop04/Program.cs:216`
+- `04-NET48/AppSecWorkshop04/Program.cs:224`
 
 ```powershell
 $BaseUrl = 'http://localhost:5104'
+Invoke-RestMethod -Uri "$BaseUrl/vuln/errors/divide-by-zero" -Method Get
 Invoke-RestMethod -Uri "$BaseUrl/secure/errors/divide-by-zero" -Method Get
-```
-
-## Etape 7 - Tests atelier
-
-Code source a verifier (etape):
-- `04-NET48/AppSecWorkshop04.Tests/SmokeTests.cs:5`
-
-```powershell
-dotnet test .\04-NET48\Atelier04.slnx
 ```
 
 ## Scripts stagiaires (support)
