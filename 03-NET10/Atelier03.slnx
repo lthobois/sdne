@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="AppSecWorkshop03/AppSecWorkshop03.csproj" />
+  <Project Path="AppSecWorkshop03.Tests/AppSecWorkshop03.Tests.csproj" />
+</Solution>

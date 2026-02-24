@@ -1,4 +1,4 @@
-@AppSecWorkshop02_HostAddress = http://localhost:5142
+@AppSecWorkshop02_HostAddress = http://localhost:5102
 @csrf = replace_after_login
 
 GET {{AppSecWorkshop02_HostAddress}}/
@@ -62,7 +62,7 @@ Accept: application/json
 
 ###
 
-GET {{AppSecWorkshop02_HostAddress}}/secure/ssrf/fetch?url=http://localhost:5142
+GET {{AppSecWorkshop02_HostAddress}}/secure/ssrf/fetch?url=http://localhost:5102
 Accept: application/json
 
 ###

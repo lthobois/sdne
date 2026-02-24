@@ -168,6 +168,7 @@ app.MapGet("/secure/errors/divide-by-zero", () =>
 app.Run();
 
 public sealed record RegisterRequest(string Username, string Password);
+public partial class Program;
 
 public static class PasswordPolicy
 {

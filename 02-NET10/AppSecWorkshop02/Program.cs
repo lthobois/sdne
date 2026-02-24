@@ -200,3 +200,4 @@ app.Run();
 
 public sealed record LoginRequest(string Username);
 public sealed record TransferRequest(string To, decimal Amount);
+public partial class Program;

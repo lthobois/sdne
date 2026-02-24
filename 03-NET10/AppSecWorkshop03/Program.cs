@@ -152,3 +152,4 @@ app.Run();
 
 public sealed record LoginRequest(string Username);
 public sealed record SafeActionRequest(string Action, string Message);
+public partial class Program;

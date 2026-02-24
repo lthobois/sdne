@@ -1,4 +1,4 @@
-@AppSecWorkshop04_HostAddress = http://localhost:5076
+@AppSecWorkshop04_HostAddress = http://localhost:5104
 
 GET {{AppSecWorkshop04_HostAddress}}/
 Accept: application/json

@@ -1,0 +1,31 @@
+name: Workshop 02 CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  workshop-02-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 02-NET10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore ./Atelier02.slnx
+
+      - name: Build
+        run: dotnet build ./Atelier02.slnx --no-restore
+
+      - name: Test
+        run: dotnet test ./Atelier02.slnx --no-build --verbosity normal

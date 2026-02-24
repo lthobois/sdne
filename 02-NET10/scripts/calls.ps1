@@ -1,4 +1,4 @@
-param([string]$BaseUrl = "http://localhost:5142")
+param([string]$BaseUrl = "http://localhost:5102")
 
 function Api($Method, $Path, $Body = $null, $Headers = @{}, [switch]$Raw) {
   Write-Host "`n=== $Method $Path ==="
@@ -27,5 +27,5 @@ try { Api POST "/secure/csrf/transfer" @{ to = "mallory"; amount = 100 } @{ Cook
 Api POST "/secure/csrf/transfer" @{ to = "mallory"; amount = 100 } @{ Cookie = $cookie; 'X-CSRF-Token' = $csrf }
 
 Api GET "/vuln/ssrf/fetch?url=http://example.com"
-try { Api GET "/secure/ssrf/fetch?url=http://localhost:5142" } catch { Write-Host $_.Exception.Message }
+try { Api GET "/secure/ssrf/fetch?url=http://localhost:5102" } catch { Write-Host $_.Exception.Message }
 Api GET "/secure/ssrf/fetch?url=https://jsonplaceholder.typicode.com/todos/1"
