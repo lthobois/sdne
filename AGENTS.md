@@ -57,3 +57,20 @@ Organisation:
 Garantir un lien clair et verifiable:
 **atelier <-> commandes <-> code source <-> resultat**,
 avec un code lisible sans expertise avancee.
+
+## 7) Regle obligatoire - A-NET48 / README
+
+Toute modification effectuee dans le projet `A-NET48` doit systematiquement entrainer une mise a jour du `README` de ce projet.
+
+Contraintes de mise a jour:
+- mise a jour pas a pas, sous forme d'etapes ajoutees a la suite;
+- ne jamais modifier ni reecrire le contenu existant du `README`;
+- uniquement append de nouvelles etapes decrivant:
+  - ce qui a ete change,
+  - pourquoi,
+  - comment le reproduire,
+  - avec commandes PowerShell si pertinent.
+
+Objectif:
+- faire du `README` un atelier de formation reproductible, permettant de reconstruire le projet progressivement;
+- garantir un `README` pedagogique, chronologique et exploitable par un stagiaire pour reproduire le projet.
