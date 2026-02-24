@@ -35,4 +35,7 @@
   <Folder Name="/10-NET48/">
     <Project Path="10-NET48/PerimeterValidationLab/PerimeterValidationLab.csproj" />
   </Folder>
+  <Folder Name="/11-NET48/">
+    <Project Path="11-NET48/CryptoFoundationLab/CryptoFoundationLab.csproj" />
+  </Folder>
 </Solution>

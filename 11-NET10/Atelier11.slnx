@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="CryptoFoundationLab.Tests/CryptoFoundationLab.Tests.csproj" />
+  <Project Path="CryptoFoundationLab/CryptoFoundationLab.csproj" />
+</Solution>

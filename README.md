@@ -1,8 +1,8 @@
 # Formation Securite .NET - Guide participant
 
-Ce depot contient 11 ateliers pratiques declinés en 2 variantes:
-- `.NET 10` dans les dossiers `00-NET10` a `10-NET10`
-- `.NET Framework 4.8` dans les dossiers `00-NET48` a `10-NET48`
+Ce depot contient 12 ateliers pratiques declines en 2 variantes:
+- `.NET 10` dans les dossiers `00-NET10` a `11-NET10`
+- `.NET Framework 4.8` dans les dossiers `00-NET48` a `11-NET48`
 
 Chaque atelier reste autonome et fournit un mode operatoire pas a pas via son `README.md`.
 
@@ -31,7 +31,7 @@ Resultat attendu:
 ## Ateliers et correspondance programme
 
 Vue rapide:
-- 11 ateliers numerotes `00` a `10`
+- 12 ateliers numerotes `00` a `11`
 - Chaque atelier existe en 2 variantes: `NET10` et `NET48`
 - Meme objectif pedagogique, implementation adaptee au framework cible
 
@@ -50,6 +50,7 @@ Correspondance detaillee:
 | 08 | `08-NET10` | `08-NET48` | Monitoring securite | Audit trail, correlation id, alerting, logs securises |
 | 09 | `09-NET10` | `09-NET48` | Durcissement AuthN/AuthZ | Integrite de token, scopes, autorisation objet |
 | 10 | `10-NET10` | `10-NET48` | Validation perimetrique | Headers forwarded, confiance proxy, surface perimetre |
+| 11 | `11-NET10` | `11-NET48` | Chiffrement avec C# | Hashage, AES, RSA, DPAPI/EFS, generation de cles et certificats |
 
 ## Convention de travail (commune a tous les ateliers)
 
@@ -95,6 +96,3 @@ dotnet clean .\FormationSecuriteDotNet48.sln
 Get-ChildItem -Recurse -Directory -Filter bin | Remove-Item -Recurse -Force
 Get-ChildItem -Recurse -Directory -Filter obj | Remove-Item -Recurse -Force
 ```
-
-
-

@@ -41,4 +41,8 @@
     <Project Path="10-NET10/PerimeterValidationLab.Tests/PerimeterValidationLab.Tests.csproj" />
     <Project Path="10-NET10/PerimeterValidationLab/PerimeterValidationLab.csproj" />
   </Folder>
+  <Folder Name="/11-NET10/">
+    <Project Path="11-NET10/CryptoFoundationLab.Tests/CryptoFoundationLab.Tests.csproj" />
+    <Project Path="11-NET10/CryptoFoundationLab/CryptoFoundationLab.csproj" />
+  </Folder>
 </Solution>
