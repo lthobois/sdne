@@ -1,5 +1,5 @@
 param(
-    [string]$TargetUrl = "http://host.docker.internal:5000",
+    [string]$TargetUrl = "http://host.docker.internal:5105",
     [string]$ReportFile = "zap-report.html"
 )
 

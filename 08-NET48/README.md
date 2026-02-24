@@ -1,61 +1,36 @@
-﻿# Atelier 08 - Monitoring securite (.NET Framework 4.8)
+# Atelier 08 - Monitoring securite (.NET Framework 4.8)
 
-## Mode compatibilite NET48
+## Objectif
 
-Cette variante est executable en .NET Framework 4.8 avec un hote HTTP de compatibilite. Les routes des ateliers NET10 sont reprises (methodes + chemins), avec des comportements vulnerables/securises reproduits en mode pedagogique net48.
+Atelier NET48 pour mettre en place des fondamentaux de monitoring securite:
+
+- correlation ID
+- audit trail
+- alerting sur echecs d'auth
+- endpoint SOC protege
+
+Implementation reelle: `08-NET48/SecurityMonitoringLab/Program.cs`.
 
 ## Pre-requis
 
-- Etre positionne a la racine du depot `sdne`
-- .NET Framework 4.8 (Developer Pack) installe
+- Windows avec .NET Framework 4.8 Developer Pack
+- .NET SDK installe (`dotnet --version`)
 - PowerShell 5.1+
+- Positionne a la racine du depot `sdne`
 
-
-## Execution .NET Framework 4.8 avec dotnet
-
-Oui, ces ateliers NET48 sont lances via la CLI `dotnet` car les projets sont au format SDK (`TargetFramework=net48`).
-
-Pre-requis complementaires:
-- .NET SDK installe (commande `dotnet` disponible)
-- .NET Framework 4.8 Developer Pack installe
-
-Commandes type:
-```powershell
-dotnet restore .\Atelier08.slnx
-dotnet build .\Atelier08.slnx
-dotnet run --project .\<Projet>\<Projet>.csproj --urls=http://localhost:5108
-```
-
-Si `HttpListener` retourne `Access denied` (Windows URL ACL), executer une fois en administrateur:
-```powershell
-netsh http add urlacl url=http://localhost:5108/ user=%USERNAME%
-```
-## Etape 1 - Initialiser et lancer
-
-Objectif: demarrer l'API de monitoring.
-
-Code source a observer:
-- `08-NET48/SecurityMonitoringLab/Program.cs:15`
-- `08-NET48/SecurityMonitoringLab/Program.cs:29`
+## Etape 1 - Restaurer et lancer
 
 ```powershell
 if (Test-Path .\08-NET48) { Set-Location .\08-NET48 }
 dotnet restore .\Atelier08.slnx
+
 $BaseUrl = 'http://localhost:5108'
 dotnet run --project .\SecurityMonitoringLab\SecurityMonitoringLab.csproj --urls=$BaseUrl
 ```
 
 Resultat attendu: API active sur `http://localhost:5108`.
 
-## Etape 2 - Login vulnerable vs secure
-
-Objectif: comparer journalisation et audit.
-
-Code source a observer:
-- `08-NET48/SecurityMonitoringLab/Program.cs:35`
-- `08-NET48/SecurityMonitoringLab/Program.cs:49`
-- `08-NET48/SecurityMonitoringLab/Monitoring/AuditStore.cs:7`
-- `08-NET48/SecurityMonitoringLab/Monitoring/SecurityAlertService.cs:8`
+## Etape 2 - Login vuln vs secure
 
 ```powershell
 $BaseUrl = 'http://localhost:5108'
@@ -71,41 +46,23 @@ Resultat attendu: reponses avec `correlationId` et etat `authenticated`.
 
 ## Etape 3 - Consulter audit trail
 
-Objectif: verifier les evenements de securite produits.
-
-Code source a observer:
-- `08-NET48/SecurityMonitoringLab/Program.cs:74`
-- `08-NET48/SecurityMonitoringLab/Monitoring/AuditStore.cs:15`
-
 ```powershell
 $BaseUrl = 'http://localhost:5108'
 Invoke-RestMethod -Uri "$BaseUrl/secure/audit/events" -Method Get
 ```
 
-Resultat attendu: liste d'evenements `auth.failure` et `auth.success`.
+Resultat attendu: presence de `auth.failure` et `auth.success`.
 
 ## Etape 4 - Consulter alertes
-
-Objectif: observer la remontee d'alertes sur echecs d'authentification.
-
-Code source a observer:
-- `08-NET48/SecurityMonitoringLab/Program.cs:79`
-- `08-NET48/SecurityMonitoringLab/Monitoring/SecurityAlertService.cs:8`
 
 ```powershell
 $BaseUrl = 'http://localhost:5108'
 Invoke-RestMethod -Uri "$BaseUrl/secure/alerts" -Method Get
 ```
 
-Resultat attendu: compteur d'alertes non vide apres plusieurs echecs.
+Resultat attendu: alertes apres plusieurs echecs.
 
 ## Etape 5 - Reset alertes (admin)
-
-Objectif: verifier protection de l'action SOC sensible.
-
-Code source a observer:
-- `08-NET48/SecurityMonitoringLab/Program.cs:84`
-- `08-NET48/SecurityMonitoringLab/Program.cs:90`
 
 ```powershell
 $BaseUrl = 'http://localhost:5108'
@@ -113,7 +70,7 @@ $BaseUrl = 'http://localhost:5108'
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/admin/reset-alerts" -Method Post -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
 
 $headers = @{ 'X-SOC-Key' = 'soc-admin-key' }
@@ -121,69 +78,27 @@ Invoke-RestMethod -Uri "$BaseUrl/secure/admin/reset-alerts" -Method Post -Header
 Invoke-RestMethod -Uri "$BaseUrl/secure/alerts" -Method Get
 ```
 
-Resultat attendu: reset autorise uniquement avec cle SOC.
+Resultat attendu: reset autorise uniquement avec `X-SOC-Key` valide.
 
-## Etape 6 - Executer les tests
-
-Objectif: valider les scenarios de monitoring automatiquement.
-
-Code source a observer:
-- `08-NET48/SecurityMonitoringLab.Tests/SecurityMonitoringTests.cs:7`
+## Tests automatisees
 
 ```powershell
 if (Test-Path .\08-NET48) { Set-Location .\08-NET48 }
 dotnet test .\SecurityMonitoringLab.Tests\SecurityMonitoringLab.Tests.csproj
 ```
 
-Resultat attendu: tests `Passed`.
+Note: sur la piste NET48, le projet de tests fournit des smoke tests d'execution (`08-NET48/SecurityMonitoringLab.Tests/SmokeTests.cs`).
 
-## Verifications
+## URL ACL Windows (si besoin)
 
-- Correlation ID present dans les flux secure
-- Audit events disponibles
-- Alertes generees puis resettees via admin key
-
-## Depannage
-
-- Si reset secure reste `401`, verifier `X-SOC-Key`.
-- Si audit vide, rejouer au moins un login secure.
-
-## Nettoyage / Reset
+Si `HttpListener` retourne `Access denied`, executer une fois en PowerShell administrateur:
 
 ```powershell
-# Dans le terminal API
-# Ctrl+C
+netsh http add urlacl url=http://localhost:5108/ user=$env:USERNAME
+```
 
-if (Test-Path .\08-NET48) { Set-Location .\08-NET48 }
+## Nettoyage
+
+```powershell
 dotnet clean .\Atelier08.slnx
 ```
-
-## Diagramme Mermaid
-
-```mermaid
-flowchart TD
-    A[Login request] --> B[Correlation ID middleware]
-    B --> C[Audit store]
-    B --> D[Alert service]
-    C --> E[Audit endpoint]
-    D --> F[Alerts endpoint]
-```
-
-
-
-
-
-
-
-
-
-
-
-## Tests NET48
-
-Les tests fournis sur cette piste sont des smoke tests de validation d'execution (build + runner).
-
-
-
-
-

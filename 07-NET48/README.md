@@ -1,60 +1,36 @@
-﻿# Atelier 07 - Limiter l'exposition (.NET Framework 4.8)
+# Atelier 07 - Limiter l'exposition (.NET Framework 4.8)
 
-## Mode compatibilite NET48
+## Objectif
 
-Cette variante est executable en .NET Framework 4.8 avec un hote HTTP de compatibilite. Les routes des ateliers NET10 sont reprises (methodes + chemins), avec des comportements vulnerables/securises reproduits en mode pedagogique net48.
+Atelier NET48 pour reduire la surface d'exposition:
+
+- filtrage WAF-like
+- protection endpoint admin
+- validation metadata upload
+- limitation de debit
+
+Implementation reelle: `07-NET48/ExposureDefenseLab/Program.cs`.
 
 ## Pre-requis
 
-- Etre positionne a la racine du depot `sdne`
-- .NET Framework 4.8 (Developer Pack) installe
+- Windows avec .NET Framework 4.8 Developer Pack
+- .NET SDK installe (`dotnet --version`)
 - PowerShell 5.1+
+- Positionne a la racine du depot `sdne`
 
-
-## Execution .NET Framework 4.8 avec dotnet
-
-Oui, ces ateliers NET48 sont lances via la CLI `dotnet` car les projets sont au format SDK (`TargetFramework=net48`).
-
-Pre-requis complementaires:
-- .NET SDK installe (commande `dotnet` disponible)
-- .NET Framework 4.8 Developer Pack installe
-
-Commandes type:
-```powershell
-dotnet restore .\Atelier07.slnx
-dotnet build .\Atelier07.slnx
-dotnet run --project .\<Projet>\<Projet>.csproj --urls=http://localhost:5107
-```
-
-Si `HttpListener` retourne `Access denied` (Windows URL ACL), executer une fois en administrateur:
-```powershell
-netsh http add urlacl url=http://localhost:5107/ user=%USERNAME%
-```
-## Etape 1 - Initialiser et lancer
-
-Objectif: demarrer l'API avec protections de surface d'attaque.
-
-Code source a observer:
-- `07-NET48/ExposureDefenseLab/Program.cs:5`
-- `07-NET48/ExposureDefenseLab/Program.cs:29`
-- `07-NET48/ExposureDefenseLab/Program.cs:47`
+## Etape 1 - Restaurer et lancer
 
 ```powershell
 if (Test-Path .\07-NET48) { Set-Location .\07-NET48 }
 dotnet restore .\Atelier07.slnx
+
 $BaseUrl = 'http://localhost:5107'
 dotnet run --project .\ExposureDefenseLab\ExposureDefenseLab.csproj --urls=$BaseUrl
 ```
 
 Resultat attendu: API active sur `http://localhost:5107`.
 
-## Etape 2 - Endpoint admin: vuln vs secure
-
-Objectif: observer la protection par cle API admin.
-
-Code source a observer:
-- `07-NET48/ExposureDefenseLab/Program.cs:53`
-- `07-NET48/ExposureDefenseLab/Program.cs:59`
+## Etape 2 - Admin endpoint: vuln vs secure
 
 ```powershell
 $BaseUrl = 'http://localhost:5107'
@@ -63,22 +39,16 @@ Invoke-RestMethod -Uri "$BaseUrl/vuln/admin/ping" -Method Get
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/admin/ping" -Method Get -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
 
 $headers = @{ 'X-Admin-Key' = 'workshop-admin-key' }
 Invoke-RestMethod -Uri "$BaseUrl/secure/admin/ping" -Method Get -Headers $headers
 ```
 
-Resultat attendu: acces secure autorise uniquement avec `X-Admin-Key` valide.
+Resultat attendu: endpoint secure accessible uniquement avec `X-Admin-Key` valide.
 
 ## Etape 3 - Filtrage WAF-like
-
-Objectif: verifier blocage de patterns malveillants.
-
-Code source a observer:
-- `07-NET48/ExposureDefenseLab/Program.cs:32`
-- `07-NET48/ExposureDefenseLab/Program.cs:37`
 
 ```powershell
 $BaseUrl = 'http://localhost:5107'
@@ -87,19 +57,13 @@ Invoke-RestMethod -Uri "$BaseUrl/secure/search?q=normal-query" -Method Get
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/search?q=$([uri]::EscapeDataString('<script>alert(1)</script>'))" -Method Get -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
 ```
 
-Resultat attendu: requete suspecte bloquee en `403`.
+Resultat attendu: pattern suspect bloque en `403`.
 
-## Etape 4 - Validation metadata upload
-
-Objectif: verifier controles type/taille/nom de fichier.
-
-Code source a observer:
-- `07-NET48/ExposureDefenseLab/Program.cs:88`
-- `07-NET48/ExposureDefenseLab/Program.cs:97`
+## Etape 4 - Validation upload metadata
 
 ```powershell
 $BaseUrl = 'http://localhost:5107'
@@ -111,20 +75,13 @@ $bad = @{ fileName = '..\\evil.exe'; contentType = 'application/octet-stream'; s
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/upload/meta" -Method Post -ContentType 'application/json' -Body $bad -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
 ```
 
-Resultat attendu: payload invalide refuse.
+Resultat attendu: payload invalide refuse (`400`).
 
 ## Etape 5 - Rate limiting
-
-Objectif: observer la limitation du debit.
-
-Code source a observer:
-- `07-NET48/ExposureDefenseLab/Program.cs:5`
-- `07-NET48/ExposureDefenseLab/Program.cs:7`
-- `07-NET48/ExposureDefenseLab/Program.cs:15`
 
 ```powershell
 $BaseUrl = 'http://localhost:5107'
@@ -138,55 +95,27 @@ $BaseUrl = 'http://localhost:5107'
 }
 ```
 
-Resultat attendu: certaines requetes passent en `429`.
+Resultat attendu: certaines requetes en `429` (fenetre 10s, limite 5).
 
-## Verifications
-
-- Endpoint admin secure protege
-- Filtrage de pattern malveillant actif
-- Validation upload appliquee
-- Rate limiter actif
-
-## Depannage
-
-- Si toutes les requetes sont bloquees, attendre 10 secondes puis retester (fenetre rate limit).
-- Si acces admin secure refuse, verifier la cle `X-Admin-Key`.
-
-## Nettoyage / Reset
+## Tests automatisees
 
 ```powershell
-# Dans le terminal API
-# Ctrl+C
-
 if (Test-Path .\07-NET48) { Set-Location .\07-NET48 }
+dotnet test .\ExposureDefenseLab.Tests\ExposureDefenseLab.Tests.csproj
+```
+
+Note: sur la piste NET48, le projet de tests fournit des smoke tests d'execution (`07-NET48/ExposureDefenseLab.Tests/SmokeTests.cs`).
+
+## URL ACL Windows (si besoin)
+
+Si `HttpListener` retourne `Access denied`, executer une fois en PowerShell administrateur:
+
+```powershell
+netsh http add urlacl url=http://localhost:5107/ user=$env:USERNAME
+```
+
+## Nettoyage
+
+```powershell
 dotnet clean .\Atelier07.slnx
 ```
-
-## Diagramme Mermaid
-
-```mermaid
-flowchart LR
-    A[Request] --> B[Rate limiter]
-    B --> C[Security filter]
-    C --> D[Endpoint authz]
-    D --> E[Response]
-```
-
-
-
-
-
-
-
-
-
-
-
-## Tests NET48
-
-Les tests fournis sur cette piste sont des smoke tests de validation d'execution (build + runner).
-
-
-
-
-

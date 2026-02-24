@@ -1,4 +1,4 @@
-@SecurityValidationLab_HostAddress = http://localhost:5000
+@SecurityValidationLab_HostAddress = http://localhost:5105
 
 GET {{SecurityValidationLab_HostAddress}}/
 Accept: application/json
@@ -21,6 +21,11 @@ Accept: application/json
 ###
 
 GET {{SecurityValidationLab_HostAddress}}/secure/open-redirect?returnUrl=https://evil.example
+Accept: application/json
+
+###
+
+GET {{SecurityValidationLab_HostAddress}}/secure/open-redirect?returnUrl=/ok
 Accept: application/json
 
 ###

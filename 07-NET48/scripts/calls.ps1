@@ -1,9 +1,13 @@
-param([string]$BaseUrl = "http://localhost:5155")
+param([string]$BaseUrl = "http://localhost:5107")
 
 function Api($Method, $Path, $Body = $null, $Headers = @{}) {
   Write-Host "`n=== $Method $Path ==="
-  if ($Body -ne $null) { Invoke-RestMethod -Method $Method -Uri "$BaseUrl$Path" -Headers $Headers -ContentType "application/json" -Body ($Body | ConvertTo-Json) }
-  else { Invoke-RestMethod -Method $Method -Uri "$BaseUrl$Path" -Headers $Headers }
+  if ($Body -ne $null) {
+    Invoke-RestMethod -Method $Method -Uri "$BaseUrl$Path" -Headers $Headers -ContentType "application/json" -Body ($Body | ConvertTo-Json)
+  }
+  else {
+    Invoke-RestMethod -Method $Method -Uri "$BaseUrl$Path" -Headers $Headers
+  }
 }
 
 Api GET "/vuln/admin/ping"

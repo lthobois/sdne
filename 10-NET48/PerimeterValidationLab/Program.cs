@@ -1,6 +1,5 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -8,33 +7,55 @@ using System.Text.RegularExpressions;
 
 internal static class Program
 {
-    private static readonly Endpoint[] Endpoints = new[]
+    private static readonly Endpoint[] Endpoints =
     {
         new Endpoint("GET", "/"),
-        new Endpoint("GET", "/secure/diagnostics/request-meta"),
-        new Endpoint("GET", "/secure/links/reset-password"),
-        new Endpoint("GET", "/secure/tenant/home"),
         new Endpoint("GET", "/vuln/links/reset-password"),
-        new Endpoint("GET", "/vuln/tenant/home")
+        new Endpoint("GET", "/secure/links/reset-password"),
+        new Endpoint("GET", "/vuln/tenant/home"),
+        new Endpoint("GET", "/secure/tenant/home"),
+        new Endpoint("GET", "/secure/diagnostics/request-meta")
+    };
+
+    private static readonly HashSet<string> AllowedHosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "app.contoso.local",
+        "admin.contoso.local"
     };
 
     private static void Main(string[] args)
     {
         var urlsArg = args.FirstOrDefault(a => a.StartsWith("--urls=", StringComparison.OrdinalIgnoreCase));
-        var urls = urlsArg == null ? new[] { "http://localhost:5100" } : urlsArg.Substring(7).Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+        var urls = urlsArg == null
+            ? new[] { "http://localhost:5110" }
+            : urlsArg.Substring(7).Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
 
         var listener = new HttpListener();
         foreach (var raw in urls)
         {
             Uri uri;
-            if (!Uri.TryCreate(raw.Trim(), UriKind.Absolute, out uri)) continue;
-            var host = uri.Host;
+            if (!Uri.TryCreate(raw.Trim(), UriKind.Absolute, out uri))
+            {
+                continue;
+            }
+
             var path = uri.AbsolutePath;
-            if (string.IsNullOrWhiteSpace(path)) path = "/";
-            if (!path.EndsWith("/")) path += "/";
-            listener.Prefixes.Add(uri.Scheme + "://" + host + ":" + uri.Port + path);
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                path = "/";
+            }
+            if (!path.EndsWith("/"))
+            {
+                path += "/";
+            }
+
+            listener.Prefixes.Add(uri.Scheme + "://" + uri.Host + ":" + uri.Port + path);
         }
-        if (listener.Prefixes.Count == 0) listener.Prefixes.Add("http://localhost:5100/");
+
+        if (listener.Prefixes.Count == 0)
+        {
+            listener.Prefixes.Add("http://localhost:5110/");
+        }
 
         listener.Start();
         Console.WriteLine("PerimeterValidationLab NET48 compat host listening on: " + string.Join(", ", listener.Prefixes.Cast<string>()));
@@ -42,7 +63,10 @@ internal static class Program
         while (true)
         {
             var ctx = listener.GetContext();
-            try { Handle(ctx); }
+            try
+            {
+                Handle(ctx);
+            }
             catch (Exception ex)
             {
                 WriteJson(ctx.Response, 500, "{\"error\":\"internal-error\",\"detail\":\"" + Escape(ex.Message) + "\"}");
@@ -62,124 +86,146 @@ internal static class Program
             return;
         }
 
-        string body = null;
-        if (method == "POST" || method == "PUT")
-        {
-            using (var reader = new StreamReader(ctx.Request.InputStream, ctx.Request.ContentEncoding ?? Encoding.UTF8))
-            {
-                body = reader.ReadToEnd();
-            }
-        }
-
         if (path == "/")
         {
-            var endpoints = string.Join(",", Endpoints.Select(e => "\"" + e.Method + " " + Escape(e.Template) + "\""));
-            WriteJson(ctx.Response, 200, "{\"workshop\":\"10-NET48\",\"application\":\"PerimeterValidationLab\",\"net48Compat\":true,\"endpoints\":[" + endpoints + "]}");
+            WriteJson(ctx.Response, 200,
+                "{\"workshop\":\"10-NET48\",\"application\":\"PerimeterValidationLab\",\"net48Compat\":true,\"modules\":[\"Header injection\",\"Forwarded headers hardening\",\"Tenant resolution\"]}");
             return;
         }
 
-        if (path.IndexOf("/vuln/open-redirect", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/vuln/links/reset-password")
         {
-            var target = ReadQuery(ctx, "returnUrl", "/");
-            ctx.Response.StatusCode = 302;
-            ctx.Response.RedirectLocation = target;
-            ctx.Response.OutputStream.Close();
+            var user = ReadQuery(ctx, "user", "anonymous");
+            var host = FirstNonEmpty(ctx.Request.Headers["X-Forwarded-Host"], ctx.Request.UserHostName, "localhost");
+            var scheme = FirstNonEmpty(ctx.Request.Headers["X-Forwarded-Proto"], "http");
+            var resetLink = scheme + "://" + StripPort(host) + "/reset?user=" + Uri.EscapeDataString(user);
+
+            WriteJson(ctx.Response, 200,
+                "{\"mode\":\"vulnerable\",\"resetLink\":\"" + Escape(resetLink) + "\",\"warning\":\"Host and scheme are trusted from user-controlled headers.\"}");
             return;
         }
 
-        if (path.IndexOf("/secure/open-redirect", StringComparison.OrdinalIgnoreCase) >= 0 || path.IndexOf("/secure/redirect", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/secure/links/reset-password")
         {
-            var target = ReadQuery(ctx, "returnUrl", "/");
-            if (!target.StartsWith("/")) { WriteJson(ctx.Response, 400, "{\"error\":\"invalid-return-url\"}"); return; }
-            ctx.Response.StatusCode = 302;
-            ctx.Response.RedirectLocation = target;
-            ctx.Response.OutputStream.Close();
-            return;
-        }
-
-        if (path.IndexOf("/vuln/clickjacking/page", StringComparison.OrdinalIgnoreCase) >= 0 || path.IndexOf("/secure/clickjacking/page", StringComparison.OrdinalIgnoreCase) >= 0)
-        {
-            if (path.IndexOf("/secure/", StringComparison.OrdinalIgnoreCase) >= 0)
+            var resolved = ResolveExternalOrigin(ctx.Request);
+            if (!resolved.Valid)
             {
-                ctx.Response.Headers["X-Frame-Options"] = "DENY";
-                ctx.Response.Headers["Content-Security-Policy"] = "frame-ancestors 'none'; default-src 'self'";
+                WriteJson(ctx.Response, 400, "{\"error\":\"" + Escape(resolved.Reason) + "\"}");
+                return;
             }
-            WriteHtml(ctx.Response, 200, "<html><body><h2>Zone sensible</h2><button>Transferer</button></body></html>");
+
+            var user = ReadQuery(ctx, "user", "anonymous");
+            var resetLink = resolved.Scheme + "://" + resolved.Host + "/reset?user=" + Uri.EscapeDataString(user);
+            WriteJson(ctx.Response, 200,
+                "{\"mode\":\"secure\",\"resetLink\":\"" + Escape(resetLink) + "\"}");
             return;
         }
 
-        if (path.IndexOf("/session/login", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/vuln/tenant/home")
         {
-            var sid = Guid.NewGuid().ToString("N");
-            var secure = path.IndexOf("/secure/", StringComparison.OrdinalIgnoreCase) >= 0;
-            var cookie = secure ? "session-id=" + sid + "; path=/; HttpOnly; Secure; SameSite=Strict" : "session-id=" + sid + "; path=/; SameSite=None";
-            ctx.Response.Headers.Add("Set-Cookie", cookie);
+            var tenantHost = FirstNonEmpty(ctx.Request.Headers["X-Forwarded-Host"], ctx.Request.UserHostName, "localhost");
+            WriteJson(ctx.Response, 200,
+                "{\"mode\":\"vulnerable\",\"tenantHost\":\"" + Escape(StripPort(tenantHost)) + "\",\"note\":\"Header injection can force tenant resolution.\"}");
+            return;
         }
 
-        if (path.IndexOf("/secure/admin", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/secure/tenant/home")
         {
-            var admin = ctx.Request.Headers["X-Admin-Key"];
-            var soc = ctx.Request.Headers["X-SOC-Key"];
-            if (string.IsNullOrWhiteSpace(admin) && string.IsNullOrWhiteSpace(soc)) { WriteJson(ctx.Response, 403, "{\"error\":\"admin-key-required\"}"); return; }
+            var resolved = ResolveExternalOrigin(ctx.Request);
+            if (!resolved.Valid)
+            {
+                WriteJson(ctx.Response, 400, "{\"error\":\"" + Escape(resolved.Reason) + "\"}");
+                return;
+            }
+
+            if (!AllowedHosts.Contains(resolved.Host))
+            {
+                WriteJson(ctx.Response, 403, "{\"error\":\"unknown-tenant\"}");
+                return;
+            }
+
+            WriteJson(ctx.Response, 200,
+                "{\"mode\":\"secure\",\"tenantHost\":\"" + Escape(resolved.Host) + "\"}");
+            return;
         }
 
-        if (path.IndexOf("/secure/resource/cpu", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/secure/diagnostics/request-meta")
         {
-            var seconds = ReadIntQuery(ctx, "seconds", 1);
-            if (seconds > 2) { WriteJson(ctx.Response, 429, "{\"error\":\"throttled\"}"); return; }
+            var resolved = ResolveExternalOrigin(ctx.Request);
+            var requestHost = StripPort(FirstNonEmpty(ctx.Request.UserHostName, "localhost"));
+            var forwardedHost = StripPort(ctx.Request.Headers["X-Forwarded-Host"] ?? string.Empty);
+            var forwardedProto = ctx.Request.Headers["X-Forwarded-Proto"] ?? string.Empty;
+            var remoteIp = ctx.Request.RemoteEndPoint == null ? string.Empty : ctx.Request.RemoteEndPoint.Address.ToString();
+
+            WriteJson(ctx.Response, 200,
+                "{" +
+                "\"remoteIp\":\"" + Escape(remoteIp) + "\"," +
+                "\"host\":\"" + Escape(requestHost) + "\"," +
+                "\"forwardedHost\":\"" + Escape(forwardedHost) + "\"," +
+                "\"forwardedProto\":\"" + Escape(forwardedProto) + "\"," +
+                "\"resolved\":{" +
+                    "\"valid\":" + (resolved.Valid ? "true" : "false") + "," +
+                    "\"host\":\"" + Escape(resolved.Host) + "\"," +
+                    "\"scheme\":\"" + Escape(resolved.Scheme) + "\"," +
+                    "\"reason\":\"" + Escape(resolved.Reason) + "\"" +
+                "}" +
+                "}");
+        }
+    }
+
+    private static OriginResolution ResolveExternalOrigin(HttpListenerRequest request)
+    {
+        var remoteIp = request.RemoteEndPoint == null ? string.Empty : request.RemoteEndPoint.Address.ToString();
+        var fromTrustedProxy = string.IsNullOrWhiteSpace(remoteIp)
+                               || string.Equals(remoteIp, "127.0.0.1", StringComparison.Ordinal)
+                               || string.Equals(remoteIp, "::1", StringComparison.Ordinal);
+
+        var requestHost = StripPort(FirstNonEmpty(request.UserHostName, "localhost"));
+        var requestScheme = "http";
+
+        var candidateHost = requestHost;
+        var candidateScheme = requestScheme;
+
+        if (fromTrustedProxy)
+        {
+            candidateHost = StripPort(FirstNonEmpty(request.Headers["X-Forwarded-Host"], candidateHost));
+            candidateScheme = FirstNonEmpty(request.Headers["X-Forwarded-Proto"], candidateScheme);
         }
 
-        if (path.IndexOf("/vuln/resource/cpu", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (!AllowedHosts.Contains(candidateHost))
         {
-            var seconds = ReadIntQuery(ctx, "seconds", 1);
-            if (seconds < 1 || seconds > 5) { WriteJson(ctx.Response, 400, "{\"error\":\"seconds doit etre entre 1 et 5\"}"); return; }
+            return OriginResolution.Deny("Host is not in allowlist.");
         }
 
-        if (path.IndexOf("/secure/ssrf/fetch", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (!string.Equals(candidateScheme, "https", StringComparison.OrdinalIgnoreCase))
         {
-            var url = ReadQuery(ctx, "url", string.Empty).ToLowerInvariant();
-            if (url.Contains("localhost") || url.Contains("127.0.0.1") || url.Contains("169.254.")) { WriteJson(ctx.Response, 400, "{\"error\":\"ssrf-blocked\"}"); return; }
+            return OriginResolution.Deny("External scheme must be https.");
         }
 
-        if (path.IndexOf("/secure/upload/meta", StringComparison.OrdinalIgnoreCase) >= 0)
+        return OriginResolution.Allow(candidateHost, "https");
+    }
+
+    private static string FirstNonEmpty(params string[] values)
+    {
+        return values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? string.Empty;
+    }
+
+    private static string StripPort(string host)
+    {
+        if (string.IsNullOrWhiteSpace(host))
         {
-            var fileName = ReadQuery(ctx, "fileName", string.Empty).ToLowerInvariant();
-            if (fileName.EndsWith(".exe") || fileName.EndsWith(".ps1")) { WriteJson(ctx.Response, 400, "{\"error\":\"blocked-extension\"}"); return; }
+            return string.Empty;
         }
 
-        var mode = path.IndexOf("/vuln/", StringComparison.OrdinalIgnoreCase) >= 0 ? "vulnerable" : (path.IndexOf("/secure/", StringComparison.OrdinalIgnoreCase) >= 0 ? "secure" : "neutral");
-        var payload = "{" +
-            "\"workshop\":\"10-NET48\"," +
-            "\"application\":\"PerimeterValidationLab\"," +
-            "\"net48Compat\":true," +
-            "\"mode\":\"" + Escape(mode) + "\"," +
-            "\"method\":\"" + Escape(method) + "\"," +
-            "\"path\":\"" + Escape(path) + "\"," +
-            "\"bodyLength\":" + (body == null ? 0 : body.Length).ToString() +
-            "}";
-        WriteJson(ctx.Response, 200, payload);
+        var value = host.Trim();
+        var idx = value.IndexOf(':');
+        return idx > 0 ? value.Substring(0, idx) : value;
     }
 
     private static string ReadQuery(HttpListenerContext ctx, string key, string defaultValue)
     {
         var value = ctx.Request.QueryString[key];
         return string.IsNullOrWhiteSpace(value) ? defaultValue : value;
-    }
-
-    private static int ReadIntQuery(HttpListenerContext ctx, string key, int defaultValue)
-    {
-        int parsed;
-        return int.TryParse(ReadQuery(ctx, key, defaultValue.ToString()), out parsed) ? parsed : defaultValue;
-    }
-
-    private static void WriteHtml(HttpListenerResponse response, int statusCode, string body)
-    {
-        var bytes = Encoding.UTF8.GetBytes(body);
-        response.StatusCode = statusCode;
-        response.ContentType = "text/html; charset=utf-8";
-        response.ContentLength64 = bytes.LongLength;
-        response.OutputStream.Write(bytes, 0, bytes.Length);
-        response.OutputStream.Close();
     }
 
     private static void WriteJson(HttpListenerResponse response, int statusCode, string body)
@@ -194,7 +240,11 @@ internal static class Program
 
     private static string Escape(string s)
     {
-        return (s ?? string.Empty).Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "").Replace("\n", " ");
+        return (s ?? string.Empty)
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\r", string.Empty)
+            .Replace("\n", " ");
     }
 
     private sealed class Endpoint
@@ -222,5 +272,30 @@ internal static class Program
             return new Regex(regex, RegexOptions.IgnoreCase | RegexOptions.Compiled);
         }
     }
-}
 
+    private sealed class OriginResolution
+    {
+        public bool Valid { get; private set; }
+        public string Host { get; private set; }
+        public string Scheme { get; private set; }
+        public string Reason { get; private set; }
+
+        private OriginResolution(bool valid, string host, string scheme, string reason)
+        {
+            Valid = valid;
+            Host = host;
+            Scheme = scheme;
+            Reason = reason;
+        }
+
+        public static OriginResolution Allow(string host, string scheme)
+        {
+            return new OriginResolution(true, host, scheme, string.Empty);
+        }
+
+        public static OriginResolution Deny(string reason)
+        {
+            return new OriginResolution(false, string.Empty, string.Empty, reason);
+        }
+    }
+}

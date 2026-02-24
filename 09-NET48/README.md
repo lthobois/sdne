@@ -1,43 +1,22 @@
-﻿# Atelier 09 - Durcissement AuthN/AuthZ (.NET Framework 4.8)
+# Atelier 09 - Durcissement AuthN/AuthZ (.NET Framework 4.8)
 
 ## Mode compatibilite NET48
 
-Cette variante est executable en .NET Framework 4.8 avec un hote HTTP de compatibilite. Les routes des ateliers NET10 sont reprises (methodes + chemins), avec des comportements vulnerables/securises reproduits en mode pedagogique net48.
+Cette variante fournit une piste executable en .NET Framework 4.8 via `HttpListener`.
+Le comportement pedagogique couvre:
+- token vulnerable non signe
+- token secure signe (HMAC)
+- verification des scopes
+- controle d'acces objet (ownership)
 
 ## Pre-requis
 
 - Etre positionne a la racine du depot `sdne`
-- .NET Framework 4.8 (Developer Pack) installe
+- .NET SDK installe (`dotnet`)
+- .NET Framework 4.8 Developer Pack
 - PowerShell 5.1+
 
-
-## Execution .NET Framework 4.8 avec dotnet
-
-Oui, ces ateliers NET48 sont lances via la CLI `dotnet` car les projets sont au format SDK (`TargetFramework=net48`).
-
-Pre-requis complementaires:
-- .NET SDK installe (commande `dotnet` disponible)
-- .NET Framework 4.8 Developer Pack installe
-
-Commandes type:
-```powershell
-dotnet restore .\Atelier09.slnx
-dotnet build .\Atelier09.slnx
-dotnet run --project .\<Projet>\<Projet>.csproj --urls=http://localhost:5109
-```
-
-Si `HttpListener` retourne `Access denied` (Windows URL ACL), executer une fois en administrateur:
-```powershell
-netsh http add urlacl url=http://localhost:5109/ user=%USERNAME%
-```
-## Etape 1 - Initialiser et lancer
-
-Objectif: demarrer l'API de hardening AuthN/AuthZ.
-
-Code source a observer:
-- `09-NET48/AuthzHardeningLab/Program.cs:15`
-- `09-NET48/AuthzHardeningLab/Security/TokenService.cs:10`
-- `09-NET48/AuthzHardeningLab/Security/DocumentStore.cs:3`
+## Lancement
 
 ```powershell
 if (Test-Path .\09-NET48) { Set-Location .\09-NET48 }
@@ -46,143 +25,67 @@ $BaseUrl = 'http://localhost:5109'
 dotnet run --project .\AuthzHardeningLab\AuthzHardeningLab.csproj --urls=$BaseUrl
 ```
 
-Resultat attendu: API active sur `http://localhost:5109`.
+Si Windows retourne `Access denied` sur `HttpListener`, executer une fois en administrateur:
 
-## Etape 2 - Emettre un token vulnerable et un token secure
+```powershell
+netsh http add urlacl url=http://localhost:5109/ user=%USERNAME%
+```
 
-Objectif: comparer format non signe et token valide.
+## Endpoints
 
-Code source a observer:
-- `09-NET48/AuthzHardeningLab/Program.cs:21`
-- `09-NET48/AuthzHardeningLab/Program.cs:27`
-- `09-NET48/AuthzHardeningLab/Security/TokenService.cs:18`
+- `GET /`
+- `POST /vuln/auth/token`
+- `POST /secure/auth/token`
+- `GET /vuln/docs/{id}`
+- `GET /secure/docs/{id}`
+- `POST /secure/docs/{id}/publish`
+
+Code principal:
+- `09-NET48/AuthzHardeningLab/Program.cs`
+
+## Parcours rapide
 
 ```powershell
 $BaseUrl = 'http://localhost:5109'
 
+# 1) Token vulnerable
 $vulnReq = @{ username = 'alice'; scope = 'docs.read' } | ConvertTo-Json
 Invoke-RestMethod -Uri "$BaseUrl/vuln/auth/token" -Method Post -ContentType 'application/json' -Body $vulnReq
 
+# 2) Token secure
 $secureReq = @{ username = 'alice'; scope = 'docs.read docs.publish' } | ConvertTo-Json
 $secureToken = Invoke-RestMethod -Uri "$BaseUrl/secure/auth/token" -Method Post -ContentType 'application/json' -Body $secureReq
-$Bearer = $secureToken.token
-```
+$headers = @{ Authorization = "Bearer $($secureToken.token)" }
 
-Resultat attendu: token secure recu pour les appels proteges.
-
-## Etape 3 - Controle d'acces objet (lecture document)
-
-Objectif: verifier scope + ownership.
-
-Code source a observer:
-- `09-NET48/AuthzHardeningLab/Program.cs:49`
-- `09-NET48/AuthzHardeningLab/Security/TokenService.cs:64`
-- `09-NET48/AuthzHardeningLab/Security/DocumentStore.cs:12`
-
-```powershell
-$BaseUrl = 'http://localhost:5109'
-$headers = @{ Authorization = "Bearer $Bearer" }
+# 3) Lecture autorisee (owner)
 Invoke-RestMethod -Uri "$BaseUrl/secure/docs/1" -Method Get -Headers $headers
 
+# 4) Lecture refusee (hors ownership)
 try {
-    Invoke-RestMethod -Uri "$BaseUrl/secure/docs/2" -Method Get -Headers $headers -ErrorAction Stop
+  Invoke-RestMethod -Uri "$BaseUrl/secure/docs/2" -Method Get -Headers $headers -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+  $_.Exception.Response.StatusCode.value__
 }
 ```
 
-Resultat attendu: document hors perimetre refuse (`403`) sauf scope/ownership adequat.
+## Tests
 
-## Etape 4 - Publication document avec scope
-
-Objectif: verifier la politique `docs.publish` + ownership.
-
-Code source a observer:
-- `09-NET48/AuthzHardeningLab/Program.cs:87`
-- `09-NET48/AuthzHardeningLab/Security/TokenService.cs:64`
-
-```powershell
-$BaseUrl = 'http://localhost:5109'
-$headers = @{ Authorization = "Bearer $Bearer" }
-Invoke-RestMethod -Uri "$BaseUrl/secure/docs/1/publish" -Method Post -Headers $headers
-```
-
-Resultat attendu: publication autorisee si le token et le proprietaire sont valides.
-
-## Etape 5 - Comparaison endpoint vulnerable
-
-Objectif: observer l'absence de controle robuste sur endpoint vuln.
-
-Code source a observer:
-- `09-NET48/AuthzHardeningLab/Program.cs:33`
-
-```powershell
-$BaseUrl = 'http://localhost:5109'
-Invoke-RestMethod -Uri "$BaseUrl/vuln/docs/2?username=alice" -Method Get
-```
-
-Resultat attendu: lecture possible en mode `vuln` sans verifications equivalentes.
-
-## Etape 6 - Executer les tests
-
-Objectif: valider automatiquement les controles AuthN/AuthZ.
-
-Code source a observer:
-- `09-NET48/AuthzHardeningLab.Tests/AuthzHardeningTests.cs:8`
+Les tests NET48 de cette piste sont des smoke tests (validation d'execution):
 
 ```powershell
 if (Test-Path .\09-NET48) { Set-Location .\09-NET48 }
 dotnet test .\AuthzHardeningLab.Tests\AuthzHardeningLab.Tests.csproj
 ```
 
-Resultat attendu: tests `Passed`.
+## Verifications attendues
 
-## Verifications
+- token absent/invalide -> `401`
+- scope manquant ou mauvais ownership -> `403`
+- endpoint `vuln` permissif (demonstration IDOR)
 
-- Token secure requis pour endpoints secure
-- Scopes appliques (`docs.read`, `docs.publish`)
-- Autorisation objet appliquee (owner/admin)
-
-## Depannage
-
-- Si `401`, verifier format `Authorization: Bearer <token>`.
-- Si `403`, verifier scopes demandes lors de l'emission du token.
-
-## Nettoyage / Reset
+## Nettoyage
 
 ```powershell
-# Dans le terminal API
-# Ctrl+C
-
 if (Test-Path .\09-NET48) { Set-Location .\09-NET48 }
 dotnet clean .\Atelier09.slnx
 ```
-
-## Diagramme Mermaid
-
-```mermaid
-flowchart LR
-    A[Token request] --> B[Token validation]
-    B --> C[Scope check]
-    C --> D[Object ownership check]
-    D --> E[Allow or Deny]
-```
-
-
-
-
-
-
-
-
-
-
-
-## Tests NET48
-
-Les tests fournis sur cette piste sont des smoke tests de validation d'execution (build + runner).
-
-
-
-
-

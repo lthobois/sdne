@@ -1,126 +1,78 @@
-﻿# Atelier 01 - HTTP Basic Auth (.NET Framework 4.8)
+# Atelier 01 - HTTP Basic Auth (.NET Framework 4.8)
 
-## Mode compatibilite NET48
+## Objectif
 
-Cette variante est executable en .NET Framework 4.8 avec un hote HTTP de compatibilite. Les routes des ateliers NET10 sont reprises (methodes + chemins), avec des comportements vulnerables/securises reproduits en mode pedagogique net48.
+Valider un flux d'authentification HTTP Basic sur une API pedagogique NET48:
+
+- `/public`: acces anonyme
+- `/secure/profile`: authentification requise
+- `/secure/admin`: role `Admin` requis
+
+Implementation reelle: `01-NET48/BasicAuthWorkshop/Program.cs`.
 
 ## Pre-requis
 
-- Etre positionne a la racine du depot `sdne`
-- .NET Framework 4.8 (Developer Pack) installe
+- Windows avec .NET Framework 4.8 Developer Pack
+- .NET SDK installe (`dotnet --version`)
 - PowerShell 5.1+
+- Positionne a la racine du depot `sdne`
 
-
-## Execution .NET Framework 4.8 avec dotnet
-
-Oui, ces ateliers NET48 sont lances via la CLI `dotnet` car les projets sont au format SDK (`TargetFramework=net48`).
-
-Pre-requis complementaires:
-- .NET SDK installe (commande `dotnet` disponible)
-- .NET Framework 4.8 Developer Pack installe
-
-Commandes type:
-```powershell
-dotnet restore .\Atelier01.slnx
-dotnet build .\Atelier01.slnx
-dotnet run --project .\<Projet>\<Projet>.csproj --urls=http://localhost:5101
-```
-
-Si `HttpListener` retourne `Access denied` (Windows URL ACL), executer une fois en administrateur:
-```powershell
-netsh http add urlacl url=http://localhost:5101/ user=%USERNAME%
-```
-## Etape 1 - Initialiser l'atelier
-
-Objectif: restaurer les dependances et preparer l'execution locale.
-
-Code source a observer:
-- `01-NET48/BasicAuthWorkshop/Program.cs:10`
-- `01-NET48/BasicAuthWorkshop/Program.cs:16`
-- `01-NET48/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:24`
+## Build
 
 ```powershell
-if (Test-Path .\01-NET48) { Set-Location .\01-NET48 }
-dotnet restore .\BasicAuthWorkshop\BasicAuthWorkshop.csproj
+dotnet restore .\01-NET48\BasicAuthWorkshop\BasicAuthWorkshop.csproj
+dotnet build .\01-NET48\BasicAuthWorkshop\BasicAuthWorkshop.csproj
 ```
 
-Resultat attendu: restauration terminee sans erreur.
+Resultat attendu: build `net48` sans erreur.
 
-## Etape 2 - Lancer l'API
-
-Objectif: demarrer le service localement sur un port fixe.
-
-Code source a observer:
-- `01-NET48/BasicAuthWorkshop/Program.cs:27`
-- `01-NET48/BasicAuthWorkshop/Program.cs:32`
+## Execution
 
 ```powershell
 $BaseUrl = 'http://localhost:5101'
-dotnet run --project .\BasicAuthWorkshop\BasicAuthWorkshop.csproj --urls=$BaseUrl
+dotnet run --project .\01-NET48\BasicAuthWorkshop\BasicAuthWorkshop.csproj --urls=$BaseUrl
 ```
 
-Resultat attendu: message `Now listening on: http://localhost:5101`.
+Le process reste actif et expose les routes HTTP.
 
-## Etape 3 - Tester endpoint public
+## Verification fonctionnelle
 
-Objectif: verifier l'acces anonyme.
+Dans un second terminal:
 
-Code source a observer:
-- `01-NET48/BasicAuthWorkshop/Program.cs:38`
-
-Execution dans un second terminal PowerShell (laisser l'API active):
+### 1) Endpoint public
 
 ```powershell
 $BaseUrl = 'http://localhost:5101'
 Invoke-RestMethod -Uri "$BaseUrl/public" -Method Get
 ```
 
-Resultat attendu: reponse JSON avec `resource = public`.
+Attendu: HTTP 200, JSON avec `resource = "public"`.
 
-## Etape 4 - Tester endpoint protege sans authentification
-
-Objectif: observer le refus d'acces.
-
-Code source a observer:
-- `01-NET48/BasicAuthWorkshop/Program.cs:44`
-- `01-NET48/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:26`
+### 2) Endpoint protege sans credentials
 
 ```powershell
 $BaseUrl = 'http://localhost:5101'
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/profile" -Method Get -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
 ```
 
-Resultat attendu: code HTTP `401`.
+Attendu: `401`.
 
-## Etape 5 - Tester HTTP Basic utilisateur standard
-
-Objectif: acceder a la ressource securisee avec identifiants valides.
-
-Code source a observer:
-- `01-NET48/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:24`
-- `01-NET48/BasicAuthWorkshop/Auth/InMemoryWorkshopUserStore.cs:3`
+### 3) Endpoint protege avec utilisateur standard
 
 ```powershell
 $BaseUrl = 'http://localhost:5101'
-$pair = 'analyst:Passw0rd!'
-$token = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
+$token = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes('analyst:Passw0rd!'))
 $headers = @{ Authorization = "Basic $token" }
 Invoke-RestMethod -Uri "$BaseUrl/secure/profile" -Headers $headers -Method Get
 ```
 
-Resultat attendu: reponse JSON contenant `user` et `roles`.
+Attendu: HTTP 200, JSON avec `user = "analyst"` et role `User`.
 
-## Etape 6 - Tester policy AdminOnly
-
-Objectif: comparer un compte non admin et un compte admin.
-
-Code source a observer:
-- `01-NET48/BasicAuthWorkshop/Program.cs:16`
-- `01-NET48/BasicAuthWorkshop/Program.cs:58`
+### 4) Controle d'acces admin
 
 ```powershell
 $BaseUrl = 'http://localhost:5101'
@@ -130,7 +82,7 @@ $headersUser = @{ Authorization = "Basic $tokenUser" }
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/admin" -Headers $headersUser -Method Get -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
 
 $tokenAdmin = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes('admin:Adm1nPass!'))
@@ -138,53 +90,49 @@ $headersAdmin = @{ Authorization = "Basic $tokenAdmin" }
 Invoke-RestMethod -Uri "$BaseUrl/secure/admin" -Headers $headersAdmin -Method Get
 ```
 
-Resultat attendu:
+Attendu:
 
-- premier appel: `403`
-- second appel: JSON avec message d'acces admin.
+- compte `analyst`: `403`
+- compte `admin`: HTTP 200
 
-## Verifications
+## Comptes de demo
 
-- `401` sans credentials
-- `200` sur `/secure/profile` avec credentials valides
-- `403` puis `200` sur `/secure/admin` selon role
+- `analyst / Passw0rd!` -> role `User`
+- `admin / Adm1nPass!` -> roles `User`, `Admin`
 
 ## Depannage
 
-- Si tous les acces renvoient `401`, verifier la valeur de l'en-tete `Authorization`.
-- Si `Connection refused`, verifier que l'API ecoute bien sur `http://localhost:5101`.
+### Erreur `Access denied` au demarrage (HttpListener)
 
-## Nettoyage / Reset
+Executer une seule fois en PowerShell administrateur:
 
 ```powershell
-# Dans le terminal API
-# Ctrl+C
-
-if (Test-Path .\01-NET48) { Set-Location .\01-NET48 }
-dotnet clean .\BasicAuthWorkshop\BasicAuthWorkshop.csproj
+netsh http add urlacl url=http://localhost:5101/ user=$env:USERNAME
 ```
 
-## Diagramme Mermaid
+### Erreur `prefix is in conflict`
 
-```mermaid
-flowchart TD
-    A[Client] --> B[API Atelier 01]
-    B --> C[Public endpoint]
-    B --> D[Secure profile]
-    B --> E[Secure admin role check]
+Le prefixe est deja reserve/utilise.
+
+Option 1: utiliser un autre port
+
+```powershell
+$BaseUrl = 'http://localhost:5199'
+dotnet run --project .\01-NET48\BasicAuthWorkshop\BasicAuthWorkshop.csproj --urls=$BaseUrl
 ```
 
+Option 2: nettoyer une reservation URL ACL obsolete (admin)
 
+```powershell
+netsh http show urlacl
+netsh http delete urlacl url=http://localhost:5101/
+```
 
+## Arret et nettoyage
 
+- arreter l'API: `Ctrl+C`
+- nettoyage:
 
-
-
-
-
-
-
-
-
-
-
+```powershell
+dotnet clean .\01-NET48\BasicAuthWorkshop\BasicAuthWorkshop.csproj
+```

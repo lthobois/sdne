@@ -23,12 +23,12 @@ Filtres Wireshark utiles:
 
 - `http.host contains "contoso"`
 - `http.request.header.name == "X-Forwarded-Host"`
-- `ip.addr == 127.0.0.1 and tcp.port == 5000`
+- `ip.addr == 127.0.0.1 and tcp.port == 5110`
 
 Exemple tcpdump (Linux):
 
 ```bash
-sudo tcpdump -i any -A 'tcp port 5000'
+sudo tcpdump -i any -A 'tcp port 5110'
 ```
 
 ## 4) Attendus pedagogiques

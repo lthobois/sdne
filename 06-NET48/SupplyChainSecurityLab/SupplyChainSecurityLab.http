@@ -1,4 +1,4 @@
-@SupplyChainSecurityLab_HostAddress = http://localhost:5062
+@SupplyChainSecurityLab_HostAddress = http://localhost:5106
 
 GET {{SupplyChainSecurityLab_HostAddress}}/
 Accept: application/json
@@ -59,6 +59,15 @@ Content-Type: application/json
   "packageId": "Polly",
   "sourceUrl": "https://api.nuget.org/v3/index.json",
   "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+
+###
+
+POST {{SupplyChainSecurityLab_HostAddress}}/secure/dependency/sha256
+Content-Type: application/json
+
+{
+  "payload": "package-content-v1"
 }
 
 ###

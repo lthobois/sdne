@@ -1,56 +1,32 @@
-﻿# Atelier 05 - Validation continue (tests, SAST, DAST) (.NET Framework 4.8)
+# Atelier 05 - Validation continue (tests, SAST, DAST) (.NET Framework 4.8)
 
-## Mode compatibilite NET48
+## Objectif
 
-Cette variante est executable en .NET Framework 4.8 avec un hote HTTP de compatibilite. Les routes des ateliers NET10 sont reprises (methodes + chemins), avec des comportements vulnerables/securises reproduits en mode pedagogique net48.
+Atelier NET48 pour automatiser des controles securite sur une API:
+
+- checks manuels `vuln` vs `secure`
+- tests automatisees (smoke tests NET48)
+- verification SAST/depedencies
+- verification DAST scriptable
+
+Implementation reelle: `05-NET48/SecurityValidationLab/Program.cs`.
 
 ## Pre-requis
 
-- Etre positionne a la racine du depot `sdne`
-- .NET Framework 4.8 (Developer Pack) installe
+- Windows avec .NET Framework 4.8 Developer Pack
+- .NET SDK installe (`dotnet --version`)
 - PowerShell 5.1+
+- Positionne a la racine du depot `sdne`
 
-
-## Execution .NET Framework 4.8 avec dotnet
-
-Oui, ces ateliers NET48 sont lances via la CLI `dotnet` car les projets sont au format SDK (`TargetFramework=net48`).
-
-Pre-requis complementaires:
-- .NET SDK installe (commande `dotnet` disponible)
-- .NET Framework 4.8 Developer Pack installe
-
-Commandes type:
-```powershell
-dotnet restore .\Atelier05.slnx
-dotnet build .\Atelier05.slnx
-dotnet run --project .\<Projet>\<Projet>.csproj --urls=http://localhost:5105
-```
-
-Si `HttpListener` retourne `Access denied` (Windows URL ACL), executer une fois en administrateur:
-```powershell
-netsh http add urlacl url=http://localhost:5105/ user=%USERNAME%
-```
-## Etape 1 - Restaurer la solution atelier
-
-Objectif: preparer API et projet de tests.
-
-Code source a observer:
-- `05-NET48/SecurityValidationLab/Program.cs:23`
-- `05-NET48/SecurityValidationLab.Tests/SecurityRegressionTests.cs:7`
+## Etape 1 - Restaurer et builder
 
 ```powershell
 if (Test-Path .\05-NET48) { Set-Location .\05-NET48 }
 dotnet restore .\Atelier05.slnx
+dotnet build .\Atelier05.slnx
 ```
 
-Resultat attendu: restauration sans erreur.
-
-## Etape 2 - Lancer l'API manuellement
-
-Objectif: disposer d'une cible locale pour les checks DAST.
-
-Code source a observer:
-- `05-NET48/SecurityValidationLab/Program.cs:23`
+## Etape 2 - Lancer l'API
 
 ```powershell
 $BaseUrl = 'http://localhost:5105'
@@ -59,15 +35,9 @@ dotnet run --project .\SecurityValidationLab\SecurityValidationLab.csproj --urls
 
 Resultat attendu: API active sur `http://localhost:5105`.
 
-## Etape 3 - Verifier manuellement les endpoints critiques
+## Etape 3 - Checks manuels rapides (XSS + Redirect)
 
-Objectif: reproduire rapidement les cas XSS et open redirect.
-
-Code source a observer:
-- `05-NET48/SecurityValidationLab/Program.cs:29`
-- `05-NET48/SecurityValidationLab/Program.cs:35`
-- `05-NET48/SecurityValidationLab/Program.cs:42`
-- `05-NET48/SecurityValidationLab/Program.cs:44`
+Dans un second terminal:
 
 ```powershell
 $BaseUrl = 'http://localhost:5105'
@@ -81,111 +51,49 @@ Invoke-WebRequest -Uri "$BaseUrl/vuln/open-redirect?returnUrl=$([uri]::EscapeDat
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/open-redirect?returnUrl=$([uri]::EscapeDataString('https://example.com'))" -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
+
+Invoke-RestMethod -Uri "$BaseUrl/secure/open-redirect?returnUrl=$([uri]::EscapeDataString('/ok'))"
 ```
 
-Resultat attendu: comportement vulnerable observable uniquement sur endpoints `vuln`.
-
-## Etape 4 - Executer les tests automatises
-
-Objectif: valider la non-regression securite.
-
-Code source a observer:
-- `05-NET48/SecurityValidationLab.Tests/SecurityRegressionTests.cs:7`
+## Etape 4 - Lancer les tests automatisees
 
 ```powershell
 if (Test-Path .\05-NET48) { Set-Location .\05-NET48 }
 dotnet test .\SecurityValidationLab.Tests\SecurityValidationLab.Tests.csproj
 ```
 
-Resultat attendu: tests `Passed`.
+Resultat attendu: `Passed`.
 
-## Etape 5 - Simuler un controle SAST local
+Note: sur la piste NET48, le projet de tests fournit des smoke tests d'execution (`05-NET48/SecurityValidationLab.Tests/SmokeTests.cs`).
 
-Objectif: lancer une analyse statique minimale reproductible.
-
-Code source a observer:
-- `05-NET48/SecurityValidationLab/Program.cs:54`
-- `05-NET48/SecurityValidationLab/SecurityValidationLab.csproj:4`
+## Etape 5 - Controle SAST local
 
 ```powershell
 if (Test-Path .\05-NET48) { Set-Location .\05-NET48 }
 dotnet build .\SecurityValidationLab\SecurityValidationLab.csproj -warnaserror
+dotnet list .\SecurityValidationLab\SecurityValidationLab.csproj package --vulnerable --include-transitive
+dotnet list .\SecurityValidationLab.Tests\SecurityValidationLab.Tests.csproj package --vulnerable --include-transitive
 ```
 
-Resultat attendu: build propre, sans avertissement non traite.
-
-## Etape 6 - Simuler un controle DAST local
-
-Objectif: enchainer des checks HTTP scriptables.
-
-Code source a observer:
-- `05-NET48/SecurityValidationLab/Program.cs:29`
-- `05-NET48/SecurityValidationLab/Program.cs:44`
+## Etape 6 - Controle DAST local
 
 ```powershell
-$BaseUrl = 'http://localhost:5105'
-$checks = @(
-    "$BaseUrl/vuln/xss?input=test",
-    "$BaseUrl/secure/xss?input=test",
-    "$BaseUrl/secure/open-redirect?returnUrl=%2Fok"
-)
-
-foreach ($url in $checks) {
-    $r = Invoke-WebRequest -Uri $url -Method Get
-    "{0} -> {1}" -f $url, $r.StatusCode
-}
-```
-
-Resultat attendu: tous les checks retounent `200` sur les cas valides.
-
-## Verifications
-
-- Tests unitaires/integration verts
-- Cas manuels `vuln` vs `secure` distingues
-- Pipeline local reproductible via commandes CI-friendly
-
-## Depannage
-
-- Si `dotnet test` echoue, executer `dotnet build` pour isoler l'erreur.
-- Si DAST local echoue, verifier que l'API tourne toujours sur `5105`.
-
-## Nettoyage / Reset
-
-```powershell
-# Dans le terminal API
-# Ctrl+C
-
 if (Test-Path .\05-NET48) { Set-Location .\05-NET48 }
+.\scripts\run-dast.ps1 -TargetUrl "http://host.docker.internal:5105"
+```
+
+## URL ACL Windows (si besoin)
+
+Si `HttpListener` retourne `Access denied`, executer une fois en PowerShell administrateur:
+
+```powershell
+netsh http add urlacl url=http://localhost:5105/ user=$env:USERNAME
+```
+
+## Nettoyage
+
+```powershell
 dotnet clean .\Atelier05.slnx
 ```
-
-## Diagramme Mermaid
-
-```mermaid
-flowchart LR
-    A[Code] --> B[Build]
-    B --> C[Tests]
-    C --> D[Manual DAST checks]
-    D --> E[Decision]
-```
-
-
-
-
-
-
-
-
-
-
-
-## Tests NET48
-
-Les tests fournis sur cette piste sont des smoke tests de validation d'execution (build + runner).
-
-
-
-
-

@@ -1,4 +1,4 @@
-@AppSecWorkshop03_HostAddress = http://localhost:5156
+@AppSecWorkshop03_HostAddress = http://localhost:5103
 @secureToken = replace_after_secure_login
 
 GET {{AppSecWorkshop03_HostAddress}}/
@@ -23,6 +23,7 @@ Accept: application/json
 
 POST {{AppSecWorkshop03_HostAddress}}/secure/session/login
 Content-Type: application/json
+User-Agent: WorkshopAgent/1.0
 
 {
   "username": "alice"
@@ -32,6 +33,7 @@ Content-Type: application/json
 
 GET {{AppSecWorkshop03_HostAddress}}/secure/session/profile
 X-Session-Token: {{secureToken}}
+User-Agent: WorkshopAgent/1.0
 Accept: application/json
 
 ###

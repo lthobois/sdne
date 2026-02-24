@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,37 +8,62 @@ using System.Text.RegularExpressions;
 
 internal static class Program
 {
-    private static readonly Endpoint[] Endpoints = new[]
+    private static readonly Endpoint[] Endpoints =
     {
         new Endpoint("GET", "/"),
-        new Endpoint("GET", "/secure/sql/users"),
-        new Endpoint("GET", "/secure/ssrf/fetch"),
-        new Endpoint("GET", "/secure/xss"),
         new Endpoint("GET", "/vuln/sql/users"),
-        new Endpoint("GET", "/vuln/ssrf/fetch"),
+        new Endpoint("GET", "/secure/sql/users"),
         new Endpoint("GET", "/vuln/xss"),
+        new Endpoint("GET", "/secure/xss"),
         new Endpoint("POST", "/auth/login"),
+        new Endpoint("POST", "/vuln/csrf/transfer"),
         new Endpoint("POST", "/secure/csrf/transfer"),
-        new Endpoint("POST", "/vuln/csrf/transfer")
+        new Endpoint("GET", "/vuln/ssrf/fetch"),
+        new Endpoint("GET", "/secure/ssrf/fetch")
     };
+
+    private static readonly User[] Users =
+    {
+        new User(1, "alice", "User"),
+        new User(2, "bob", "Admin"),
+        new User(3, "charlie", "User")
+    };
+
+    private static readonly Dictionary<string, SessionInfo> Sessions = new Dictionary<string, SessionInfo>(StringComparer.Ordinal);
 
     private static void Main(string[] args)
     {
         var urlsArg = args.FirstOrDefault(a => a.StartsWith("--urls=", StringComparison.OrdinalIgnoreCase));
-        var urls = urlsArg == null ? new[] { "http://localhost:5100" } : urlsArg.Substring(7).Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+        var urls = urlsArg == null
+            ? new[] { "http://localhost:5102" }
+            : urlsArg.Substring(7).Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
 
         var listener = new HttpListener();
         foreach (var raw in urls)
         {
             Uri uri;
-            if (!Uri.TryCreate(raw.Trim(), UriKind.Absolute, out uri)) continue;
-            var host = uri.Host;
+            if (!Uri.TryCreate(raw.Trim(), UriKind.Absolute, out uri))
+            {
+                continue;
+            }
+
             var path = uri.AbsolutePath;
-            if (string.IsNullOrWhiteSpace(path)) path = "/";
-            if (!path.EndsWith("/")) path += "/";
-            listener.Prefixes.Add(uri.Scheme + "://" + host + ":" + uri.Port + path);
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                path = "/";
+            }
+            if (!path.EndsWith("/"))
+            {
+                path += "/";
+            }
+
+            listener.Prefixes.Add(uri.Scheme + "://" + uri.Host + ":" + uri.Port + path);
         }
-        if (listener.Prefixes.Count == 0) listener.Prefixes.Add("http://localhost:5100/");
+
+        if (listener.Prefixes.Count == 0)
+        {
+            listener.Prefixes.Add("http://localhost:5102/");
+        }
 
         listener.Start();
         Console.WriteLine("AppSecWorkshop02 NET48 compat host listening on: " + string.Join(", ", listener.Prefixes.Cast<string>()));
@@ -46,7 +71,10 @@ internal static class Program
         while (true)
         {
             var ctx = listener.GetContext();
-            try { Handle(ctx); }
+            try
+            {
+                Handle(ctx);
+            }
             catch (Exception ex)
             {
                 WriteJson(ctx.Response, 500, "{\"error\":\"internal-error\",\"detail\":\"" + Escape(ex.Message) + "\"}");
@@ -59,121 +87,235 @@ internal static class Program
         var method = ctx.Request.HttpMethod.ToUpperInvariant();
         var path = ctx.Request.Url == null ? "/" : ctx.Request.Url.AbsolutePath;
 
-        var endpoint = Endpoints.FirstOrDefault(e => e.Method == method && e.Match(path));
+        var endpoint = Endpoints.FirstOrDefault(e => e.Method == method && e.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
         if (endpoint == null)
         {
             WriteJson(ctx.Response, 404, "{\"error\":\"not-found\",\"method\":\"" + Escape(method) + "\",\"path\":\"" + Escape(path) + "\"}");
             return;
         }
 
-        string body = null;
-        if (method == "POST" || method == "PUT")
-        {
-            using (var reader = new StreamReader(ctx.Request.InputStream, ctx.Request.ContentEncoding ?? Encoding.UTF8))
-            {
-                body = reader.ReadToEnd();
-            }
-        }
-
         if (path == "/")
         {
-            var endpoints = string.Join(",", Endpoints.Select(e => "\"" + e.Method + " " + Escape(e.Template) + "\""));
-            WriteJson(ctx.Response, 200, "{\"workshop\":\"02-NET48\",\"application\":\"AppSecWorkshop02\",\"net48Compat\":true,\"endpoints\":[" + endpoints + "]}");
+            WriteJson(ctx.Response, 200,
+                "{\"workshop\":\"02-NET48\",\"application\":\"AppSecWorkshop02\",\"net48Compat\":true,\"modules\":[\"SQLi\",\"XSS\",\"CSRF\",\"SSRF\"],\"usage\":\"Utilisez /vuln/* puis /secure/* pour comparer.\"}");
             return;
         }
 
-        if (path.IndexOf("/vuln/open-redirect", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/vuln/sql/users")
         {
-            var target = ReadQuery(ctx, "returnUrl", "/");
-            ctx.Response.StatusCode = 302;
-            ctx.Response.RedirectLocation = target;
-            ctx.Response.OutputStream.Close();
+            HandleVulnSql(ctx);
             return;
         }
 
-        if (path.IndexOf("/secure/open-redirect", StringComparison.OrdinalIgnoreCase) >= 0 || path.IndexOf("/secure/redirect", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/secure/sql/users")
         {
-            var target = ReadQuery(ctx, "returnUrl", "/");
-            if (!target.StartsWith("/")) { WriteJson(ctx.Response, 400, "{\"error\":\"invalid-return-url\"}"); return; }
-            ctx.Response.StatusCode = 302;
-            ctx.Response.RedirectLocation = target;
-            ctx.Response.OutputStream.Close();
+            HandleSecureSql(ctx);
             return;
         }
 
-        if (path.IndexOf("/vuln/clickjacking/page", StringComparison.OrdinalIgnoreCase) >= 0 || path.IndexOf("/secure/clickjacking/page", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/vuln/xss")
         {
-            if (path.IndexOf("/secure/", StringComparison.OrdinalIgnoreCase) >= 0)
+            var input = ReadQuery(ctx, "input", string.Empty);
+            var html = "<html><body><h2>Commentaire utilisateur</h2><div>" + input + "</div></body></html>";
+            WriteHtml(ctx.Response, 200, html);
+            return;
+        }
+
+        if (path == "/secure/xss")
+        {
+            var input = ReadQuery(ctx, "input", string.Empty);
+            var safe = WebUtility.HtmlEncode(input);
+            var html = "<html><body><h2>Commentaire utilisateur</h2><div>" + safe + "</div></body></html>";
+            WriteHtml(ctx.Response, 200, html);
+            return;
+        }
+
+        var body = ReadBody(ctx.Request);
+
+        if (path == "/auth/login")
+        {
+            var username = ReadJsonString(body, "username") ?? "anonymous";
+            var sessionId = Guid.NewGuid().ToString("N");
+            var csrfToken = Guid.NewGuid().ToString("N");
+
+            Sessions[sessionId] = new SessionInfo(username, csrfToken);
+            ctx.Response.Headers.Add("Set-Cookie", "session-id=" + sessionId + "; path=/; HttpOnly; SameSite=Lax");
+
+            WriteJson(ctx.Response, 200,
+                "{\"message\":\"Session creee\",\"username\":\"" + Escape(username) + "\",\"csrfToken\":\"" + csrfToken + "\"}");
+            return;
+        }
+
+        if (path == "/vuln/csrf/transfer")
+        {
+            SessionInfo session;
+            if (!TryGetSession(ctx.Request, out session))
             {
-                ctx.Response.Headers["X-Frame-Options"] = "DENY";
-                ctx.Response.Headers["Content-Security-Policy"] = "frame-ancestors 'none'; default-src 'self'";
+                WriteJson(ctx.Response, 401, "{\"error\":\"unauthorized\"}");
+                return;
             }
-            WriteHtml(ctx.Response, 200, "<html><body><h2>Zone sensible</h2><button>Transferer</button></body></html>");
+
+            var transfer = ReadTransfer(body);
+            WriteJson(ctx.Response, 200,
+                "{\"mode\":\"vulnerable\",\"from\":\"" + Escape(session.Username) + "\",\"to\":\"" + Escape(transfer.To) + "\",\"amount\":" + transfer.Amount + ",\"warning\":\"Aucune verification anti-CSRF n'est appliquee.\"}");
             return;
         }
 
-        if (path.IndexOf("/session/login", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/secure/csrf/transfer")
         {
-            var sid = Guid.NewGuid().ToString("N");
-            var secure = path.IndexOf("/secure/", StringComparison.OrdinalIgnoreCase) >= 0;
-            var cookie = secure ? "session-id=" + sid + "; path=/; HttpOnly; Secure; SameSite=Strict" : "session-id=" + sid + "; path=/; SameSite=None";
-            ctx.Response.Headers.Add("Set-Cookie", cookie);
+            SessionInfo session;
+            if (!TryGetSession(ctx.Request, out session))
+            {
+                WriteJson(ctx.Response, 401, "{\"error\":\"unauthorized\"}");
+                return;
+            }
+
+            var requestToken = ctx.Request.Headers["X-CSRF-Token"];
+            if (string.IsNullOrWhiteSpace(requestToken) || !string.Equals(requestToken, session.CsrfToken, StringComparison.Ordinal))
+            {
+                WriteJson(ctx.Response, 403, "{\"error\":\"invalid-csrf-token\"}");
+                return;
+            }
+
+            var transfer = ReadTransfer(body);
+            WriteJson(ctx.Response, 200,
+                "{\"mode\":\"secure\",\"from\":\"" + Escape(session.Username) + "\",\"to\":\"" + Escape(transfer.To) + "\",\"amount\":" + transfer.Amount + "}");
+            return;
         }
 
-        if (path.IndexOf("/secure/admin", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/vuln/ssrf/fetch")
         {
-            var admin = ctx.Request.Headers["X-Admin-Key"];
-            var soc = ctx.Request.Headers["X-SOC-Key"];
-            if (string.IsNullOrWhiteSpace(admin) && string.IsNullOrWhiteSpace(soc)) { WriteJson(ctx.Response, 403, "{\"error\":\"admin-key-required\"}"); return; }
+            var url = ReadQuery(ctx, "url", string.Empty);
+            WriteJson(ctx.Response, 200,
+                "{\"mode\":\"vulnerable\",\"url\":\"" + Escape(url) + "\",\"excerpt\":\"Simulated outbound fetch (no SSRF guard).\"}");
+            return;
         }
 
-        if (path.IndexOf("/secure/resource/cpu", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/secure/ssrf/fetch")
         {
-            var seconds = ReadIntQuery(ctx, "seconds", 1);
-            if (seconds > 2) { WriteJson(ctx.Response, 429, "{\"error\":\"throttled\"}"); return; }
+            var rawUrl = ReadQuery(ctx, "url", string.Empty);
+            Uri uri;
+            if (!Uri.TryCreate(rawUrl, UriKind.Absolute, out uri))
+            {
+                WriteJson(ctx.Response, 400, "{\"error\":\"url-invalide\"}");
+                return;
+            }
+
+            if (!string.Equals(uri.Scheme, "http", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase))
+            {
+                WriteJson(ctx.Response, 400, "{\"error\":\"schema-non-autorise\"}");
+                return;
+            }
+
+            var host = uri.Host.ToLowerInvariant();
+            if (host == "localhost" || host == "127.0.0.1" || host == "::1" || host.StartsWith("169.254."))
+            {
+                WriteJson(ctx.Response, 400, "{\"error\":\"ssrf-blocked\"}");
+                return;
+            }
+
+            WriteJson(ctx.Response, 200,
+                "{\"mode\":\"secure\",\"url\":\"" + Escape(uri.ToString()) + "\",\"excerpt\":\"Simulated outbound fetch after SSRF validation.\"}");
+        }
+    }
+
+    private static void HandleVulnSql(HttpListenerContext ctx)
+    {
+        var username = ReadQuery(ctx, "username", string.Empty);
+        var query = "SELECT id, username, role FROM users WHERE username = '" + username + "'";
+
+        var injected = username.IndexOf("'", StringComparison.Ordinal) >= 0
+                       && username.IndexOf("or", StringComparison.OrdinalIgnoreCase) >= 0;
+
+        var users = injected
+            ? Users
+            : Users.Where(u => string.Equals(u.Username, username, StringComparison.Ordinal));
+
+        WriteJson(ctx.Response, 200,
+            "{\"mode\":\"vulnerable\",\"query\":\"" + Escape(query) + "\",\"users\":" + UsersToJson(users) + "}");
+    }
+
+    private static void HandleSecureSql(HttpListenerContext ctx)
+    {
+        var username = ReadQuery(ctx, "username", string.Empty);
+        var users = Users.Where(u => string.Equals(u.Username, username, StringComparison.Ordinal));
+
+        WriteJson(ctx.Response, 200,
+            "{\"mode\":\"secure\",\"query\":\"SELECT id, username, role FROM users WHERE username = @username\",\"users\":" + UsersToJson(users) + "}");
+    }
+
+    private static string UsersToJson(IEnumerable<User> users)
+    {
+        return "[" + string.Join(",", users.Select(u => "{\"id\":" + u.Id + ",\"username\":\"" + Escape(u.Username) + "\",\"role\":\"" + Escape(u.Role) + "\"}")) + "]";
+    }
+
+    private static string ReadBody(HttpListenerRequest request)
+    {
+        using (var reader = new StreamReader(request.InputStream, request.ContentEncoding ?? Encoding.UTF8))
+        {
+            return reader.ReadToEnd();
+        }
+    }
+
+    private static bool TryGetSession(HttpListenerRequest request, out SessionInfo session)
+    {
+        session = null;
+        var cookieHeader = request.Headers["Cookie"] ?? string.Empty;
+        var match = Regex.Match(cookieHeader, @"(?:^|;\s*)session-id=([^;]+)", RegexOptions.IgnoreCase);
+        if (!match.Success)
+        {
+            return false;
         }
 
-        if (path.IndexOf("/vuln/resource/cpu", StringComparison.OrdinalIgnoreCase) >= 0)
+        var sessionId = match.Groups[1].Value;
+        return Sessions.TryGetValue(sessionId, out session);
+    }
+
+    private static Transfer ReadTransfer(string body)
+    {
+        var to = ReadJsonString(body, "to") ?? "unknown";
+        var amountRaw = ReadJsonNumber(body, "amount") ?? "0";
+        decimal amount;
+        if (!decimal.TryParse(amountRaw, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out amount))
         {
-            var seconds = ReadIntQuery(ctx, "seconds", 1);
-            if (seconds < 1 || seconds > 5) { WriteJson(ctx.Response, 400, "{\"error\":\"seconds doit etre entre 1 et 5\"}"); return; }
+            amount = 0;
         }
 
-        if (path.IndexOf("/secure/ssrf/fetch", StringComparison.OrdinalIgnoreCase) >= 0)
+        return new Transfer(to, amount.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    private static string ReadJsonString(string json, string key)
+    {
+        if (string.IsNullOrWhiteSpace(json))
         {
-            var url = ReadQuery(ctx, "url", string.Empty).ToLowerInvariant();
-            if (url.Contains("localhost") || url.Contains("127.0.0.1") || url.Contains("169.254.")) { WriteJson(ctx.Response, 400, "{\"error\":\"ssrf-blocked\"}"); return; }
+            return null;
         }
 
-        if (path.IndexOf("/secure/upload/meta", StringComparison.OrdinalIgnoreCase) >= 0)
+        var m = Regex.Match(json, "\"" + Regex.Escape(key) + "\"\\s*:\\s*\"(?<v>(?:\\\\.|[^\"])*)\"", RegexOptions.IgnoreCase);
+        if (!m.Success)
         {
-            var fileName = ReadQuery(ctx, "fileName", string.Empty).ToLowerInvariant();
-            if (fileName.EndsWith(".exe") || fileName.EndsWith(".ps1")) { WriteJson(ctx.Response, 400, "{\"error\":\"blocked-extension\"}"); return; }
+            return null;
         }
 
-        var mode = path.IndexOf("/vuln/", StringComparison.OrdinalIgnoreCase) >= 0 ? "vulnerable" : (path.IndexOf("/secure/", StringComparison.OrdinalIgnoreCase) >= 0 ? "secure" : "neutral");
-        var payload = "{" +
-            "\"workshop\":\"02-NET48\"," +
-            "\"application\":\"AppSecWorkshop02\"," +
-            "\"net48Compat\":true," +
-            "\"mode\":\"" + Escape(mode) + "\"," +
-            "\"method\":\"" + Escape(method) + "\"," +
-            "\"path\":\"" + Escape(path) + "\"," +
-            "\"bodyLength\":" + (body == null ? 0 : body.Length).ToString() +
-            "}";
-        WriteJson(ctx.Response, 200, payload);
+        return Regex.Unescape(m.Groups["v"].Value);
+    }
+
+    private static string ReadJsonNumber(string json, string key)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        var m = Regex.Match(json, "\"" + Regex.Escape(key) + "\"\\s*:\\s*(?<v>-?[0-9]+(?:\\.[0-9]+)?)", RegexOptions.IgnoreCase);
+        return m.Success ? m.Groups["v"].Value : null;
     }
 
     private static string ReadQuery(HttpListenerContext ctx, string key, string defaultValue)
     {
         var value = ctx.Request.QueryString[key];
         return string.IsNullOrWhiteSpace(value) ? defaultValue : value;
-    }
-
-    private static int ReadIntQuery(HttpListenerContext ctx, string key, int defaultValue)
-    {
-        int parsed;
-        return int.TryParse(ReadQuery(ctx, key, defaultValue.ToString()), out parsed) ? parsed : defaultValue;
     }
 
     private static void WriteHtml(HttpListenerResponse response, int statusCode, string body)
@@ -198,33 +340,60 @@ internal static class Program
 
     private static string Escape(string s)
     {
-        return (s ?? string.Empty).Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "").Replace("\n", " ");
+        return (s ?? string.Empty)
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\r", string.Empty)
+            .Replace("\n", " ");
     }
 
     private sealed class Endpoint
     {
-        public Endpoint(string method, string template)
+        public Endpoint(string method, string path)
         {
             Method = method;
-            Template = template;
-            Pattern = BuildPattern(template);
+            Path = path;
         }
 
         public string Method { get; private set; }
-        public string Template { get; private set; }
-        private Regex Pattern { get; set; }
+        public string Path { get; private set; }
+    }
 
-        public bool Match(string path)
+    private sealed class User
+    {
+        public User(int id, string username, string role)
         {
-            return Pattern.IsMatch(path ?? "/");
+            Id = id;
+            Username = username;
+            Role = role;
         }
 
-        private static Regex BuildPattern(string template)
+        public int Id { get; private set; }
+        public string Username { get; private set; }
+        public string Role { get; private set; }
+    }
+
+    private sealed class SessionInfo
+    {
+        public SessionInfo(string username, string csrfToken)
         {
-            var regex = "^" + Regex.Escape(template).Replace("\\{id:int\\}", "[0-9]+") + "$";
-            regex = Regex.Replace(regex, "\\{[^/]+\\}", "[^/]+");
-            return new Regex(regex, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+            Username = username;
+            CsrfToken = csrfToken;
         }
+
+        public string Username { get; private set; }
+        public string CsrfToken { get; private set; }
+    }
+
+    private sealed class Transfer
+    {
+        public Transfer(string to, string amount)
+        {
+            To = to;
+            Amount = amount;
+        }
+
+        public string To { get; private set; }
+        public string Amount { get; private set; }
     }
 }
-

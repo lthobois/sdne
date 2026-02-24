@@ -1,4 +1,4 @@
-@SecurityMonitoringLab_HostAddress = http://localhost:5297
+@SecurityMonitoringLab_HostAddress = http://localhost:5108
 
 GET {{SecurityMonitoringLab_HostAddress}}/
 Accept: application/json

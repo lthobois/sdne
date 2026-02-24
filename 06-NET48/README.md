@@ -1,59 +1,36 @@
-﻿# Atelier 06 - Securite du code externe (.NET Framework 4.8)
+# Atelier 06 - Securite du code externe (.NET Framework 4.8)
 
-## Mode compatibilite NET48
+## Objectif
 
-Cette variante est executable en .NET Framework 4.8 avec un hote HTTP de compatibilite. Les routes des ateliers NET10 sont reprises (methodes + chemins), avec des comportements vulnerables/securises reproduits en mode pedagogique net48.
+Atelier NET48 pour travailler la securite supply-chain:
+
+- gestion des secrets
+- controles sur appels sortants
+- approbation de dependances (provenance + digest)
+- verification SCA/SBOM
+
+Implementation reelle: `06-NET48/SupplyChainSecurityLab/Program.cs`.
 
 ## Pre-requis
 
-- Etre positionne a la racine du depot `sdne`
-- .NET Framework 4.8 (Developer Pack) installe
+- Windows avec .NET Framework 4.8 Developer Pack
+- .NET SDK installe (`dotnet --version`)
 - PowerShell 5.1+
+- Positionne a la racine du depot `sdne`
 
-
-## Execution .NET Framework 4.8 avec dotnet
-
-Oui, ces ateliers NET48 sont lances via la CLI `dotnet` car les projets sont au format SDK (`TargetFramework=net48`).
-
-Pre-requis complementaires:
-- .NET SDK installe (commande `dotnet` disponible)
-- .NET Framework 4.8 Developer Pack installe
-
-Commandes type:
-```powershell
-dotnet restore .\Atelier06.slnx
-dotnet build .\Atelier06.slnx
-dotnet run --project .\<Projet>\<Projet>.csproj --urls=http://localhost:5106
-```
-
-Si `HttpListener` retourne `Access denied` (Windows URL ACL), executer une fois en administrateur:
-```powershell
-netsh http add urlacl url=http://localhost:5106/ user=%USERNAME%
-```
-## Etape 1 - Initialiser et lancer
-
-Objectif: demarrer l'API supply-chain locale.
-
-Code source a observer:
-- `06-NET48/SupplyChainSecurityLab/Program.cs:20`
-- `06-NET48/SupplyChainSecurityLab/Security/SupplyChainPolicy.cs:3`
+## Etape 1 - Restaurer et lancer
 
 ```powershell
 if (Test-Path .\06-NET48) { Set-Location .\06-NET48 }
 dotnet restore .\Atelier06.slnx
+
 $BaseUrl = 'http://localhost:5106'
 dotnet run --project .\SupplyChainSecurityLab\SupplyChainSecurityLab.csproj --urls=$BaseUrl
 ```
 
 Resultat attendu: API active sur `http://localhost:5106`.
 
-## Etape 2 - Secrets: hardcode vs variable d'environnement
-
-Objectif: verifier la difference de gestion de secret.
-
-Code source a observer:
-- `06-NET48/SupplyChainSecurityLab/Program.cs:26`
-- `06-NET48/SupplyChainSecurityLab/Program.cs:32`
+## Etape 2 - Secrets: hardcode vs env var
 
 ```powershell
 $BaseUrl = 'http://localhost:5106'
@@ -67,36 +44,25 @@ Resultat attendu: endpoint secure indique `keyConfigured = true`.
 
 ## Etape 3 - Appels sortants controles
 
-Objectif: comparer fetch non filtre et fetch filtre.
-
-Code source a observer:
-- `06-NET48/SupplyChainSecurityLab/Program.cs:43`
-- `06-NET48/SupplyChainSecurityLab/Program.cs:55`
-- `06-NET48/SupplyChainSecurityLab/Security/OutboundRequestGuard.cs:5`
-
 ```powershell
 $BaseUrl = 'http://localhost:5106'
 Invoke-RestMethod -Uri "$BaseUrl/vuln/outbound/fetch?url=$([uri]::EscapeDataString('https://example.com'))" -Method Get
-Invoke-RestMethod -Uri "$BaseUrl/secure/outbound/fetch?url=$([uri]::EscapeDataString('https://example.com'))" -Method Get
 
 try {
-    Invoke-RestMethod -Uri "$BaseUrl/secure/outbound/fetch?url=$([uri]::EscapeDataString('http://127.0.0.1:80'))" -Method Get -ErrorAction Stop
+    Invoke-RestMethod -Uri "$BaseUrl/secure/outbound/fetch?url=$([uri]::EscapeDataString('http://example.com'))" -Method Get -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
+
+Invoke-RestMethod -Uri "$BaseUrl/secure/outbound/fetch?url=$([uri]::EscapeDataString('https://jsonplaceholder.typicode.com/todos/1'))" -Method Get
 ```
 
-Resultat attendu: URL locale rejetee en mode secure.
+Resultat attendu:
+
+- mode `vuln`: fetch permissif
+- mode `secure`: HTTPS + host allowlist obligatoires
 
 ## Etape 4 - Approbation de dependance
-
-Objectif: tester controles allowlist + format SHA-256.
-
-Code source a observer:
-- `06-NET48/SupplyChainSecurityLab/Program.cs:82`
-- `06-NET48/SupplyChainSecurityLab/Program.cs:92`
-- `06-NET48/SupplyChainSecurityLab/Program.cs:133`
-- `06-NET48/SupplyChainSecurityLab/Security/SupplyChainPolicy.cs:3`
 
 ```powershell
 $BaseUrl = 'http://localhost:5106'
@@ -105,77 +71,45 @@ $bad = @{ packageId = 'unknown.pkg'; sourceUrl = 'https://evil.local/pkg'; sha25
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/dependency/approve" -Method Post -ContentType 'application/json' -Body $bad -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
+
+$good = @{ packageId = 'Polly'; sourceUrl = 'https://api.nuget.org/v3/index.json'; sha256 = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } | ConvertTo-Json
+Invoke-RestMethod -Uri "$BaseUrl/secure/dependency/approve" -Method Post -ContentType 'application/json' -Body $good
 
 $shaBody = @{ payload = 'package-content-v1' } | ConvertTo-Json
 $sha = Invoke-RestMethod -Uri "$BaseUrl/secure/dependency/sha256" -Method Post -ContentType 'application/json' -Body $shaBody
 $sha.sha256
 ```
 
-Resultat attendu: rejet de la demande invalide et hash SHA-256 valide calcule.
-
 ## Etape 5 - Tests automatiques
-
-Objectif: valider les controles supply-chain via tests.
-
-Code source a observer:
-- `06-NET48/SupplyChainSecurityLab.Tests/SupplyChainSecurityTests.cs:7`
 
 ```powershell
 if (Test-Path .\06-NET48) { Set-Location .\06-NET48 }
 dotnet test .\SupplyChainSecurityLab.Tests\SupplyChainSecurityLab.Tests.csproj
 ```
 
-Resultat attendu: tests `Passed`.
+Note: sur la piste NET48, le projet de tests fournit des smoke tests d'execution (`06-NET48/SupplyChainSecurityLab.Tests/SmokeTests.cs`).
 
-## Verifications
-
-- Secret non expose en dur dans le mode secure
-- URLs sortantes sensibles bloquees
-- Validation package/source/hash active
-
-## Depannage
-
-- Si `secure/config/secret` retourne `false`, relancer API apres definir `UPSTREAM_API_KEY`.
-- Si fetch HTTPS echoue, verifier acces Internet local.
-
-## Nettoyage / Reset
+## Etape 6 - SCA / SBOM
 
 ```powershell
-# Dans le terminal API
-# Ctrl+C
-
 if (Test-Path .\06-NET48) { Set-Location .\06-NET48 }
+.\scripts\run-sca.ps1
+.\scripts\generate-sbom.ps1
+```
+
+## URL ACL Windows (si besoin)
+
+Si `HttpListener` retourne `Access denied`, executer une fois en PowerShell administrateur:
+
+```powershell
+netsh http add urlacl url=http://localhost:5106/ user=$env:USERNAME
+```
+
+## Nettoyage
+
+```powershell
 Remove-Item Env:\UPSTREAM_API_KEY -ErrorAction SilentlyContinue
 dotnet clean .\Atelier06.slnx
 ```
-
-## Diagramme Mermaid
-
-```mermaid
-flowchart TD
-    A[Dependency request] --> B[Host allowlist]
-    B --> C[Package allowlist]
-    C --> D[SHA256 format]
-    D --> E[Approved or Rejected]
-```
-
-
-
-
-
-
-
-
-
-
-
-## Tests NET48
-
-Les tests fournis sur cette piste sont des smoke tests de validation d'execution (build + runner).
-
-
-
-
-

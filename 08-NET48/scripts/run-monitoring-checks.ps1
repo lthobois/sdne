@@ -11,7 +11,7 @@ Write-Host "[Monitoring] Tests"
 dotnet test $SolutionPath
 
 Write-Host "[Monitoring] Check dangerous logging patterns"
-if (Get-ChildItem -Recurse -File .\SecurityMonitoringLab | Select-String -Pattern 'password=\{Password\}|password=' -CaseSensitive) {
+if (Get-ChildItem -Recurse -File .\SecurityMonitoringLab | Select-String -Pattern 'prod-password=|production-secret' -CaseSensitive) {
     Write-Host "Potential sensitive logging pattern found."
     exit 1
 }

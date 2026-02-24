@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,36 +8,60 @@ using System.Text.RegularExpressions;
 
 internal static class Program
 {
-    private static readonly Endpoint[] Endpoints = new[]
+    private static readonly Endpoint[] Endpoints =
     {
         new Endpoint("GET", "/"),
-        new Endpoint("GET", "/secure/errors/divide-by-zero"),
+        new Endpoint("POST", "/vuln/register"),
+        new Endpoint("POST", "/secure/register"),
+        new Endpoint("GET", "/vuln/files/read"),
         new Endpoint("GET", "/secure/files/read"),
+        new Endpoint("GET", "/vuln/redirect"),
         new Endpoint("GET", "/secure/redirect"),
         new Endpoint("GET", "/vuln/errors/divide-by-zero"),
-        new Endpoint("GET", "/vuln/files/read"),
-        new Endpoint("GET", "/vuln/redirect"),
-        new Endpoint("POST", "/secure/register"),
-        new Endpoint("POST", "/vuln/register")
+        new Endpoint("GET", "/secure/errors/divide-by-zero")
     };
+
+    private static string _contentRoot = AppDomain.CurrentDomain.BaseDirectory;
+    private static string _safeFolder = AppDomain.CurrentDomain.BaseDirectory;
 
     private static void Main(string[] args)
     {
+        _contentRoot = AppDomain.CurrentDomain.BaseDirectory;
+        _safeFolder = Path.Combine(_contentRoot, "safe-files");
+        Directory.CreateDirectory(_safeFolder);
+        File.WriteAllText(Path.Combine(_safeFolder, "public-note.txt"), "Public workshop note.");
+
         var urlsArg = args.FirstOrDefault(a => a.StartsWith("--urls=", StringComparison.OrdinalIgnoreCase));
-        var urls = urlsArg == null ? new[] { "http://localhost:5100" } : urlsArg.Substring(7).Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+        var urls = urlsArg == null
+            ? new[] { "http://localhost:5104" }
+            : urlsArg.Substring(7).Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
 
         var listener = new HttpListener();
         foreach (var raw in urls)
         {
             Uri uri;
-            if (!Uri.TryCreate(raw.Trim(), UriKind.Absolute, out uri)) continue;
-            var host = uri.Host;
+            if (!Uri.TryCreate(raw.Trim(), UriKind.Absolute, out uri))
+            {
+                continue;
+            }
+
             var path = uri.AbsolutePath;
-            if (string.IsNullOrWhiteSpace(path)) path = "/";
-            if (!path.EndsWith("/")) path += "/";
-            listener.Prefixes.Add(uri.Scheme + "://" + host + ":" + uri.Port + path);
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                path = "/";
+            }
+            if (!path.EndsWith("/"))
+            {
+                path += "/";
+            }
+
+            listener.Prefixes.Add(uri.Scheme + "://" + uri.Host + ":" + uri.Port + path);
         }
-        if (listener.Prefixes.Count == 0) listener.Prefixes.Add("http://localhost:5100/");
+
+        if (listener.Prefixes.Count == 0)
+        {
+            listener.Prefixes.Add("http://localhost:5104/");
+        }
 
         listener.Start();
         Console.WriteLine("AppSecWorkshop04 NET48 compat host listening on: " + string.Join(", ", listener.Prefixes.Cast<string>()));
@@ -45,7 +69,11 @@ internal static class Program
         while (true)
         {
             var ctx = listener.GetContext();
-            try { Handle(ctx); }
+            try
+            {
+                ApplySecurityHeaders(ctx.Response);
+                Handle(ctx);
+            }
             catch (Exception ex)
             {
                 WriteJson(ctx.Response, 500, "{\"error\":\"internal-error\",\"detail\":\"" + Escape(ex.Message) + "\"}");
@@ -58,109 +86,188 @@ internal static class Program
         var method = ctx.Request.HttpMethod.ToUpperInvariant();
         var path = ctx.Request.Url == null ? "/" : ctx.Request.Url.AbsolutePath;
 
-        var endpoint = Endpoints.FirstOrDefault(e => e.Method == method && e.Match(path));
+        var endpoint = Endpoints.FirstOrDefault(e => e.Method == method && e.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
         if (endpoint == null)
         {
             WriteJson(ctx.Response, 404, "{\"error\":\"not-found\",\"method\":\"" + Escape(method) + "\",\"path\":\"" + Escape(path) + "\"}");
             return;
         }
 
-        string body = null;
-        if (method == "POST" || method == "PUT")
-        {
-            using (var reader = new StreamReader(ctx.Request.InputStream, ctx.Request.ContentEncoding ?? Encoding.UTF8))
-            {
-                body = reader.ReadToEnd();
-            }
-        }
-
         if (path == "/")
         {
-            var endpoints = string.Join(",", Endpoints.Select(e => "\"" + e.Method + " " + Escape(e.Template) + "\""));
-            WriteJson(ctx.Response, 200, "{\"workshop\":\"04-NET48\",\"application\":\"AppSecWorkshop04\",\"net48Compat\":true,\"endpoints\":[" + endpoints + "]}");
+            WriteJson(ctx.Response, 200,
+                "{\"workshop\":\"04-NET48\",\"application\":\"AppSecWorkshop04\",\"net48Compat\":true,\"modules\":[\"Input validation\",\"Path traversal\",\"Open redirect\",\"Error handling\"]}");
             return;
         }
 
-        if (path.IndexOf("/vuln/open-redirect", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/vuln/register")
         {
-            var target = ReadQuery(ctx, "returnUrl", "/");
-            ctx.Response.StatusCode = 302;
-            ctx.Response.RedirectLocation = target;
-            ctx.Response.OutputStream.Close();
+            var body = ReadBody(ctx.Request);
+            var username = ReadJsonString(body, "username") ?? string.Empty;
+            var password = ReadJsonString(body, "password") ?? string.Empty;
+
+            Console.WriteLine("[WARN] vuln/register username=" + username + " password=" + password);
+            WriteJson(ctx.Response, 200,
+                "{\"mode\":\"vulnerable\",\"message\":\"Compte cree (sans validation robuste).\"}");
             return;
         }
 
-        if (path.IndexOf("/secure/open-redirect", StringComparison.OrdinalIgnoreCase) >= 0 || path.IndexOf("/secure/redirect", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/secure/register")
         {
-            var target = ReadQuery(ctx, "returnUrl", "/");
-            if (!target.StartsWith("/")) { WriteJson(ctx.Response, 400, "{\"error\":\"invalid-return-url\"}"); return; }
-            ctx.Response.StatusCode = 302;
-            ctx.Response.RedirectLocation = target;
-            ctx.Response.OutputStream.Close();
-            return;
-        }
+            var body = ReadBody(ctx.Request);
+            var username = ReadJsonString(body, "username") ?? string.Empty;
+            var password = ReadJsonString(body, "password") ?? string.Empty;
 
-        if (path.IndexOf("/vuln/clickjacking/page", StringComparison.OrdinalIgnoreCase) >= 0 || path.IndexOf("/secure/clickjacking/page", StringComparison.OrdinalIgnoreCase) >= 0)
-        {
-            if (path.IndexOf("/secure/", StringComparison.OrdinalIgnoreCase) >= 0)
+            var errors = new List<string>();
+            if (string.IsNullOrWhiteSpace(username) || username.Length < 4)
             {
-                ctx.Response.Headers["X-Frame-Options"] = "DENY";
-                ctx.Response.Headers["Content-Security-Policy"] = "frame-ancestors 'none'; default-src 'self'";
+                errors.Add("username: minimum 4 caracteres.");
             }
-            WriteHtml(ctx.Response, 200, "<html><body><h2>Zone sensible</h2><button>Transferer</button></body></html>");
+
+            if (!Regex.IsMatch(username, "^[a-zA-Z0-9_.-]+$"))
+            {
+                errors.Add("username: caracteres non autorises.");
+            }
+
+            if (!IsStrongPassword(password))
+            {
+                errors.Add("password: minimum 12 caracteres avec majuscule, minuscule, chiffre et caractere special.");
+            }
+
+            if (errors.Count > 0)
+            {
+                var errorsJson = "[" + string.Join(",", errors.Select(e => "\"" + Escape(e) + "\"")) + "]";
+                WriteJson(ctx.Response, 400, "{\"mode\":\"secure\",\"errors\":" + errorsJson + "}");
+                return;
+            }
+
+            WriteJson(ctx.Response, 200,
+                "{\"mode\":\"secure\",\"message\":\"Compte cree avec validation.\",\"note\":\"Ne jamais journaliser les secrets.\"}");
             return;
         }
 
-        if (path.IndexOf("/session/login", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/vuln/files/read")
         {
-            var sid = Guid.NewGuid().ToString("N");
-            var secure = path.IndexOf("/secure/", StringComparison.OrdinalIgnoreCase) >= 0;
-            var cookie = secure ? "session-id=" + sid + "; path=/; HttpOnly; Secure; SameSite=Strict" : "session-id=" + sid + "; path=/; SameSite=None";
-            ctx.Response.Headers.Add("Set-Cookie", cookie);
+            var requestedPath = ReadQuery(ctx, "path", string.Empty);
+            var fullPath = Path.Combine(_contentRoot, requestedPath);
+            if (!File.Exists(fullPath))
+            {
+                WriteJson(ctx.Response, 404, "{\"error\":\"Fichier introuvable.\"}");
+                return;
+            }
+
+            var content = File.ReadAllText(fullPath);
+            WriteJson(ctx.Response, 200,
+                "{\"mode\":\"vulnerable\",\"path\":\"" + Escape(fullPath) + "\",\"content\":\"" + Escape(content) + "\"}");
+            return;
         }
 
-        if (path.IndexOf("/secure/admin", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/secure/files/read")
         {
-            var admin = ctx.Request.Headers["X-Admin-Key"];
-            var soc = ctx.Request.Headers["X-SOC-Key"];
-            if (string.IsNullOrWhiteSpace(admin) && string.IsNullOrWhiteSpace(soc)) { WriteJson(ctx.Response, 403, "{\"error\":\"admin-key-required\"}"); return; }
+            var fileName = ReadQuery(ctx, "fileName", string.Empty);
+            if (!Regex.IsMatch(fileName, "^[a-zA-Z0-9_.-]+$"))
+            {
+                WriteJson(ctx.Response, 400, "{\"mode\":\"secure\",\"error\":\"Nom de fichier invalide.\"}");
+                return;
+            }
+
+            var fullPath = Path.GetFullPath(Path.Combine(_safeFolder, fileName));
+            if (!fullPath.StartsWith(_safeFolder, StringComparison.OrdinalIgnoreCase))
+            {
+                WriteJson(ctx.Response, 400, "{\"mode\":\"secure\",\"error\":\"Tentative de traversal detectee.\"}");
+                return;
+            }
+
+            if (!File.Exists(fullPath))
+            {
+                WriteJson(ctx.Response, 404, "{\"mode\":\"secure\",\"error\":\"Fichier introuvable.\"}");
+                return;
+            }
+
+            var content = File.ReadAllText(fullPath);
+            WriteJson(ctx.Response, 200,
+                "{\"mode\":\"secure\",\"fileName\":\"" + Escape(fileName) + "\",\"content\":\"" + Escape(content) + "\"}");
+            return;
         }
 
-        if (path.IndexOf("/secure/resource/cpu", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/vuln/redirect")
         {
-            var seconds = ReadIntQuery(ctx, "seconds", 1);
-            if (seconds > 2) { WriteJson(ctx.Response, 429, "{\"error\":\"throttled\"}"); return; }
+            var returnUrl = ReadQuery(ctx, "returnUrl", "/");
+            ctx.Response.StatusCode = 302;
+            ctx.Response.RedirectLocation = returnUrl;
+            ctx.Response.OutputStream.Close();
+            return;
         }
 
-        if (path.IndexOf("/vuln/resource/cpu", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/secure/redirect")
         {
-            var seconds = ReadIntQuery(ctx, "seconds", 1);
-            if (seconds < 1 || seconds > 5) { WriteJson(ctx.Response, 400, "{\"error\":\"seconds doit etre entre 1 et 5\"}"); return; }
+            var returnUrl = ReadQuery(ctx, "returnUrl", "/");
+            if (returnUrl.IndexOf("://", StringComparison.Ordinal) >= 0 || !returnUrl.StartsWith("/", StringComparison.Ordinal))
+            {
+                WriteJson(ctx.Response, 400, "{\"mode\":\"secure\",\"error\":\"URL externe refusee.\"}");
+                return;
+            }
+
+            WriteJson(ctx.Response, 200,
+                "{\"mode\":\"secure\",\"message\":\"Redirection validee.\",\"target\":\"" + Escape(returnUrl) + "\"}");
+            return;
         }
 
-        if (path.IndexOf("/secure/ssrf/fetch", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/vuln/errors/divide-by-zero")
         {
-            var url = ReadQuery(ctx, "url", string.Empty).ToLowerInvariant();
-            if (url.Contains("localhost") || url.Contains("127.0.0.1") || url.Contains("169.254.")) { WriteJson(ctx.Response, 400, "{\"error\":\"ssrf-blocked\"}"); return; }
+            var x = 0;
+            var value = 10 / x;
+            WriteJson(ctx.Response, 200, "{\"value\":" + value + "}");
+            return;
         }
 
-        if (path.IndexOf("/secure/upload/meta", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path == "/secure/errors/divide-by-zero")
         {
-            var fileName = ReadQuery(ctx, "fileName", string.Empty).ToLowerInvariant();
-            if (fileName.EndsWith(".exe") || fileName.EndsWith(".ps1")) { WriteJson(ctx.Response, 400, "{\"error\":\"blocked-extension\"}"); return; }
+            try
+            {
+                var x = 0;
+                var value = 10 / x;
+                WriteJson(ctx.Response, 200, "{\"value\":" + value + "}");
+            }
+            catch
+            {
+                WriteJson(ctx.Response, 500,
+                    "{\"type\":\"about:blank\",\"title\":\"Operation failed.\",\"status\":500,\"detail\":\"Unexpected arithmetic error.\"}");
+            }
+        }
+    }
+
+    private static bool IsStrongPassword(string password)
+    {
+        if (string.IsNullOrWhiteSpace(password) || password.Length < 12)
+        {
+            return false;
         }
 
-        var mode = path.IndexOf("/vuln/", StringComparison.OrdinalIgnoreCase) >= 0 ? "vulnerable" : (path.IndexOf("/secure/", StringComparison.OrdinalIgnoreCase) >= 0 ? "secure" : "neutral");
-        var payload = "{" +
-            "\"workshop\":\"04-NET48\"," +
-            "\"application\":\"AppSecWorkshop04\"," +
-            "\"net48Compat\":true," +
-            "\"mode\":\"" + Escape(mode) + "\"," +
-            "\"method\":\"" + Escape(method) + "\"," +
-            "\"path\":\"" + Escape(path) + "\"," +
-            "\"bodyLength\":" + (body == null ? 0 : body.Length).ToString() +
-            "}";
-        WriteJson(ctx.Response, 200, payload);
+        var hasUpper = password.Any(char.IsUpper);
+        var hasLower = password.Any(char.IsLower);
+        var hasDigit = password.Any(char.IsDigit);
+        var hasSpecial = password.Any(c => !char.IsLetterOrDigit(c));
+        return hasUpper && hasLower && hasDigit && hasSpecial;
+    }
+
+    private static string ReadBody(HttpListenerRequest request)
+    {
+        using (var reader = new StreamReader(request.InputStream, request.ContentEncoding ?? Encoding.UTF8))
+        {
+            return reader.ReadToEnd();
+        }
+    }
+
+    private static string ReadJsonString(string json, string key)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        var m = Regex.Match(json, "\"" + Regex.Escape(key) + "\"\\s*:\\s*\"(?<v>(?:\\\\.|[^\"])*)\"", RegexOptions.IgnoreCase);
+        return m.Success ? Regex.Unescape(m.Groups["v"].Value) : null;
     }
 
     private static string ReadQuery(HttpListenerContext ctx, string key, string defaultValue)
@@ -169,20 +276,12 @@ internal static class Program
         return string.IsNullOrWhiteSpace(value) ? defaultValue : value;
     }
 
-    private static int ReadIntQuery(HttpListenerContext ctx, string key, int defaultValue)
+    private static void ApplySecurityHeaders(HttpListenerResponse response)
     {
-        int parsed;
-        return int.TryParse(ReadQuery(ctx, key, defaultValue.ToString()), out parsed) ? parsed : defaultValue;
-    }
-
-    private static void WriteHtml(HttpListenerResponse response, int statusCode, string body)
-    {
-        var bytes = Encoding.UTF8.GetBytes(body);
-        response.StatusCode = statusCode;
-        response.ContentType = "text/html; charset=utf-8";
-        response.ContentLength64 = bytes.LongLength;
-        response.OutputStream.Write(bytes, 0, bytes.Length);
-        response.OutputStream.Close();
+        response.Headers["X-Content-Type-Options"] = "nosniff";
+        response.Headers["X-Frame-Options"] = "DENY";
+        response.Headers["Referrer-Policy"] = "no-referrer";
+        response.Headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'; base-uri 'none';";
     }
 
     private static void WriteJson(HttpListenerResponse response, int statusCode, string body)
@@ -197,33 +296,22 @@ internal static class Program
 
     private static string Escape(string s)
     {
-        return (s ?? string.Empty).Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "").Replace("\n", " ");
+        return (s ?? string.Empty)
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\r", string.Empty)
+            .Replace("\n", " ");
     }
 
     private sealed class Endpoint
     {
-        public Endpoint(string method, string template)
+        public Endpoint(string method, string path)
         {
             Method = method;
-            Template = template;
-            Pattern = BuildPattern(template);
+            Path = path;
         }
 
         public string Method { get; private set; }
-        public string Template { get; private set; }
-        private Regex Pattern { get; set; }
-
-        public bool Match(string path)
-        {
-            return Pattern.IsMatch(path ?? "/");
-        }
-
-        private static Regex BuildPattern(string template)
-        {
-            var regex = "^" + Regex.Escape(template).Replace("\\{id:int\\}", "[0-9]+") + "$";
-            regex = Regex.Replace(regex, "\\{[^/]+\\}", "[^/]+");
-            return new Regex(regex, RegexOptions.IgnoreCase | RegexOptions.Compiled);
-        }
+        public string Path { get; private set; }
     }
 }
-

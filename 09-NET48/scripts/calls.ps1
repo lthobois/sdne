@@ -1,4 +1,4 @@
-param([string]$BaseUrl = "http://localhost:5128")
+param([string]$BaseUrl = "http://localhost:5109")
 
 function Api($Method, $Path, $Body = $null, $Headers = @{}) {
   Write-Host "`n=== $Method $Path ==="

@@ -1,61 +1,38 @@
-﻿# Atelier 04 - Secure Coding et durcissement (.NET Framework 4.8)
+# Atelier 04 - Secure Coding et durcissement (.NET Framework 4.8)
 
-## Mode compatibilite NET48
+## Objectif
 
-Cette variante est executable en .NET Framework 4.8 avec un hote HTTP de compatibilite. Les routes des ateliers NET10 sont reprises (methodes + chemins), avec des comportements vulnerables/securises reproduits en mode pedagogique net48.
+Atelier NET48 de comparaison `vuln` vs `secure` pour:
+
+- validation d'entrees
+- path traversal
+- open redirect
+- gestion d'erreurs
+
+Implementation reelle: `04-NET48/AppSecWorkshop04/Program.cs`.
 
 ## Pre-requis
 
-- Etre positionne a la racine du depot `sdne`
-- .NET Framework 4.8 (Developer Pack) installe
+- Windows avec .NET Framework 4.8 Developer Pack
+- .NET SDK installe (`dotnet --version`)
 - PowerShell 5.1+
+- Positionne a la racine du depot `sdne`
 
-
-## Execution .NET Framework 4.8 avec dotnet
-
-Oui, ces ateliers NET48 sont lances via la CLI `dotnet` car les projets sont au format SDK (`TargetFramework=net48`).
-
-Pre-requis complementaires:
-- .NET SDK installe (commande `dotnet` disponible)
-- .NET Framework 4.8 Developer Pack installe
-
-Commandes type:
-```powershell
-dotnet restore .\Atelier04.slnx
-dotnet build .\Atelier04.slnx
-dotnet run --project .\<Projet>\<Projet>.csproj --urls=http://localhost:5104
-```
-
-Si `HttpListener` retourne `Access denied` (Windows URL ACL), executer une fois en administrateur:
-```powershell
-netsh http add urlacl url=http://localhost:5104/ user=%USERNAME%
-```
-## Etape 1 - Initialiser et lancer
-
-Objectif: lancer l'API pour comparer endpoints `vuln` et `secure`.
-
-Code source a observer:
-- `04-NET48/AppSecWorkshop04/Program.cs:13`
-- `04-NET48/AppSecWorkshop04/Program.cs:16`
-- `04-NET48/AppSecWorkshop04/Program.cs:25`
+## Build et lancement
 
 ```powershell
-if (Test-Path .\04-NET48) { Set-Location .\04-NET48 }
-dotnet restore .\AppSecWorkshop04\AppSecWorkshop04.csproj
+dotnet restore .\04-NET48\AppSecWorkshop04\AppSecWorkshop04.csproj
+dotnet build .\04-NET48\AppSecWorkshop04\AppSecWorkshop04.csproj
+
 $BaseUrl = 'http://localhost:5104'
-dotnet run --project .\AppSecWorkshop04\AppSecWorkshop04.csproj --urls=$BaseUrl
+dotnet run --project .\04-NET48\AppSecWorkshop04\AppSecWorkshop04.csproj --urls=$BaseUrl
 ```
 
-Resultat attendu: API active sur `http://localhost:5104`.
+## Verification fonctionnelle
 
-## Etape 2 - Validation des entrees (register)
+Dans un second terminal:
 
-Objectif: constater l'absence de validation puis la validation forte.
-
-Code source a observer:
-- `04-NET48/AppSecWorkshop04/Program.cs:37`
-- `04-NET48/AppSecWorkshop04/Program.cs:51`
-- `04-NET48/AppSecWorkshop04/Program.cs:172`
+### 1) Validation des entrees (register)
 
 ```powershell
 $BaseUrl = 'http://localhost:5104'
@@ -66,25 +43,19 @@ Invoke-RestMethod -Uri "$BaseUrl/vuln/register" -Method Post -ContentType 'appli
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/register" -Method Post -ContentType 'application/json' -Body $weak -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
 
 $strong = @{ username = 'alice.secure'; password = 'Str0ng!Passw0rd' } | ConvertTo-Json
 Invoke-RestMethod -Uri "$BaseUrl/secure/register" -Method Post -ContentType 'application/json' -Body $strong
 ```
 
-Resultat attendu:
+Attendu:
 
 - `vuln/register`: accepte
 - `secure/register`: rejette faible puis accepte fort
 
-## Etape 3 - Path traversal
-
-Objectif: comparer lecture de chemin libre vs chemin contraint.
-
-Code source a observer:
-- `04-NET48/AppSecWorkshop04/Program.cs:83`
-- `04-NET48/AppSecWorkshop04/Program.cs:100`
+### 2) Path traversal
 
 ```powershell
 $BaseUrl = 'http://localhost:5104'
@@ -97,19 +68,13 @@ Invoke-RestMethod -Uri "$BaseUrl/vuln/files/read?path=$([uri]::EscapeDataString(
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/files/read?fileName=$([uri]::EscapeDataString($traversal))" -Method Get -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
 ```
 
-Resultat attendu: tentative traversal rejetee cote `secure`.
+Attendu: tentative traversal rejetee cote `secure`.
 
-## Etape 4 - Open redirect
-
-Objectif: verifier qu'une URL externe est refusee sur endpoint securise.
-
-Code source a observer:
-- `04-NET48/AppSecWorkshop04/Program.cs:124`
-- `04-NET48/AppSecWorkshop04/Program.cs:129`
+### 3) Open redirect
 
 ```powershell
 $BaseUrl = 'http://localhost:5104'
@@ -119,21 +84,15 @@ Invoke-WebRequest -Uri "$BaseUrl/vuln/redirect?returnUrl=$([uri]::EscapeDataStri
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/redirect?returnUrl=$([uri]::EscapeDataString('https://example.com'))" -Method Get -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
 
 Invoke-RestMethod -Uri "$BaseUrl/secure/redirect?returnUrl=$([uri]::EscapeDataString('/home'))" -Method Get
 ```
 
-Resultat attendu: URL externe refusee sur endpoint secure.
+Attendu: URL externe refusee sur endpoint secure.
 
-## Etape 5 - Gestion d'erreurs
-
-Objectif: comparer fuite d'erreur brute et reponse maitrisee.
-
-Code source a observer:
-- `04-NET48/AppSecWorkshop04/Program.cs:144`
-- `04-NET48/AppSecWorkshop04/Program.cs:151`
+### 4) Gestion d'erreurs
 
 ```powershell
 $BaseUrl = 'http://localhost:5104'
@@ -141,57 +100,27 @@ $BaseUrl = 'http://localhost:5104'
 try {
     Invoke-RestMethod -Uri "$BaseUrl/vuln/errors/divide-by-zero" -Method Get -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
 
 Invoke-RestMethod -Uri "$BaseUrl/secure/errors/divide-by-zero" -Method Get
 ```
 
-Resultat attendu: endpoint secure renvoie une erreur controlee (`ProblemDetails`).
+Attendu:
 
-## Verifications
+- `vuln`: erreur technique non maitrisee
+- `secure`: erreur controlee (payload type ProblemDetails)
 
-- Validation stricte sur `secure/register`
-- Protection traversal sur `secure/files/read`
-- Refus URL externe sur `secure/redirect`
-- Erreur maitrisee sur `secure/errors/divide-by-zero`
+## URL ACL Windows (si besoin)
 
-## Depannage
-
-- Si lecture `secure/files/read` renvoie `404`, verifier `public-note.txt`.
-- Si redirection suit automatiquement, ajouter `-MaximumRedirection 0`.
-
-## Nettoyage / Reset
+Si `HttpListener` retourne `Access denied`, executer une fois en PowerShell administrateur:
 
 ```powershell
-# Dans le terminal API
-# Ctrl+C
-
-if (Test-Path .\04-NET48) { Set-Location .\04-NET48 }
-dotnet clean .\AppSecWorkshop04\AppSecWorkshop04.csproj
+netsh http add urlacl url=http://localhost:5104/ user=$env:USERNAME
 ```
 
-## Diagramme Mermaid
+## Nettoyage
 
-```mermaid
-flowchart TD
-    A[Input] --> B[Validation]
-    B --> C[File access]
-    B --> D[Redirect control]
-    B --> E[Error handling]
+```powershell
+dotnet clean .\04-NET48\AppSecWorkshop04\AppSecWorkshop04.csproj
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

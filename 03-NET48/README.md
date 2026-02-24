@@ -1,61 +1,37 @@
-﻿# Atelier 03 - Session, Deserialisation, IDOR (.NET Framework 4.8)
+# Atelier 03 - Session, Deserialisation, IDOR (.NET Framework 4.8)
 
-## Mode compatibilite NET48
+## Objectif
 
-Cette variante est executable en .NET Framework 4.8 avec un hote HTTP de compatibilite. Les routes des ateliers NET10 sont reprises (methodes + chemins), avec des comportements vulnerables/securises reproduits en mode pedagogique net48.
+Atelier NET48 de comparaison `vuln` vs `secure` pour:
+
+- Session theft
+- Insecure deserialization
+- IDOR
+
+Implementation reelle: `03-NET48/AppSecWorkshop03/Program.cs`.
 
 ## Pre-requis
 
-- Etre positionne a la racine du depot `sdne`
-- .NET Framework 4.8 (Developer Pack) installe
+- Windows avec .NET Framework 4.8 Developer Pack
+- .NET SDK installe (`dotnet --version`)
 - PowerShell 5.1+
+- Positionne a la racine du depot `sdne`
 
-
-## Execution .NET Framework 4.8 avec dotnet
-
-Oui, ces ateliers NET48 sont lances via la CLI `dotnet` car les projets sont au format SDK (`TargetFramework=net48`).
-
-Pre-requis complementaires:
-- .NET SDK installe (commande `dotnet` disponible)
-- .NET Framework 4.8 Developer Pack installe
-
-Commandes type:
-```powershell
-dotnet restore .\Atelier03.slnx
-dotnet build .\Atelier03.slnx
-dotnet run --project .\<Projet>\<Projet>.csproj --urls=http://localhost:5103
-```
-
-Si `HttpListener` retourne `Access denied` (Windows URL ACL), executer une fois en administrateur:
-```powershell
-netsh http add urlacl url=http://localhost:5103/ user=%USERNAME%
-```
-## Etape 1 - Initialiser et lancer
-
-Objectif: demarrer l'API de l'atelier.
-
-Code source a observer:
-- `03-NET48/AppSecWorkshop03/Program.cs:19`
-- `03-NET48/AppSecWorkshop03/Security/VulnerableSessionService.cs:7`
-- `03-NET48/AppSecWorkshop03/Security/SecureSessionService.cs:9`
+## Build et lancement
 
 ```powershell
-if (Test-Path .\03-NET48) { Set-Location .\03-NET48 }
-dotnet restore .\AppSecWorkshop03\AppSecWorkshop03.csproj
+dotnet restore .\03-NET48\AppSecWorkshop03\AppSecWorkshop03.csproj
+dotnet build .\03-NET48\AppSecWorkshop03\AppSecWorkshop03.csproj
+
 $BaseUrl = 'http://localhost:5103'
-dotnet run --project .\AppSecWorkshop03\AppSecWorkshop03.csproj --urls=$BaseUrl
+dotnet run --project .\03-NET48\AppSecWorkshop03\AppSecWorkshop03.csproj --urls=$BaseUrl
 ```
 
-Resultat attendu: API active sur `http://localhost:5103`.
+## Verification fonctionnelle
 
-## Etape 2 - Session theft (token)
+Dans un second terminal:
 
-Objectif: comparer validation faible et validation renforcee.
-
-Code source a observer:
-- `03-NET48/AppSecWorkshop03/Program.cs:26`
-- `03-NET48/AppSecWorkshop03/Program.cs:47`
-- `03-NET48/AppSecWorkshop03/Security/SecureSessionService.cs:22`
+### 1) Session vuln vs secure
 
 ```powershell
 $BaseUrl = 'http://localhost:5103'
@@ -65,24 +41,32 @@ $vulnLogin = Invoke-RestMethod -Uri "$BaseUrl/vuln/session/login" -Method Post -
 $vulnToken = $vulnLogin.token
 Invoke-RestMethod -Uri "$BaseUrl/vuln/session/profile?token=$vulnToken" -Method Get
 
-$secureLogin = Invoke-RestMethod -Uri "$BaseUrl/secure/session/login" -Method Post -ContentType 'application/json' -Headers @{ 'User-Agent' = 'WorkshopAgent/1.0' } -Body $loginBody
+$headersLogin = @{ 'User-Agent' = 'WorkshopAgent/1.0' }
+$secureLogin = Invoke-RestMethod -Uri "$BaseUrl/secure/session/login" -Method Post -Headers $headersLogin -ContentType 'application/json' -Body $loginBody
 $secureToken = $secureLogin.token
-Invoke-RestMethod -Uri "$BaseUrl/secure/session/profile" -Method Get -Headers @{ 'X-Session-Token' = $secureToken; 'User-Agent' = 'WorkshopAgent/1.0' }
+
+$headersProfile = @{ 'X-Session-Token' = $secureToken; 'User-Agent' = 'WorkshopAgent/1.0' }
+Invoke-RestMethod -Uri "$BaseUrl/secure/session/profile" -Method Get -Headers $headersProfile
 ```
 
-Resultat attendu: profile secure valide seulement avec token + contexte attendu.
+Attendu:
 
-## Etape 3 - Deserialisation
+- mode `vuln`: token previsible/reutilisable
+- mode `secure`: token valide seulement avec `X-Session-Token` + meme `User-Agent`
 
-Objectif: tester endpoint vulnerable puis endpoint securise.
-
-Code source a observer:
-- `03-NET48/AppSecWorkshop03/Program.cs:75`
-- `03-NET48/AppSecWorkshop03/Program.cs:94`
-- `03-NET48/AppSecWorkshop03/Serialization/WorkshopActions.cs:5`
+### 2) Deserialisation vuln vs secure
 
 ```powershell
 $BaseUrl = 'http://localhost:5103'
+
+$danger = @"
+{
+  "$type": "AppSecWorkshop03.Serialization.DangerousAction, AppSecWorkshop03",
+  "FileName": "owned-by-deserialization.txt",
+  "Content": "Payload deserialize"
+}
+"@
+Invoke-RestMethod -Uri "$BaseUrl/vuln/deserialization/execute" -Method Post -ContentType 'application/json' -Body $danger
 
 $safeBody = @{ action = 'echo'; message = 'hello' } | ConvertTo-Json
 Invoke-RestMethod -Uri "$BaseUrl/secure/deserialization/execute" -Method Post -ContentType 'application/json' -Body $safeBody
@@ -91,85 +75,46 @@ $badBody = @{ action = 'delete-all'; message = 'x' } | ConvertTo-Json
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/deserialization/execute" -Method Post -ContentType 'application/json' -Body $badBody -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
 ```
 
-Resultat attendu: seule l'action `echo` est acceptee en mode secure.
+Attendu:
 
-## Etape 4 - IDOR
+- `vuln`: payload type peut declencher une action dangereuse
+- `secure`: seule l'action `echo` est acceptee
 
-Objectif: verifier qu'un utilisateur ne lit pas une ressource qui ne lui appartient pas.
-
-Code source a observer:
-- `03-NET48/AppSecWorkshop03/Program.cs:108`
-- `03-NET48/AppSecWorkshop03/Program.cs:124`
-- `03-NET48/AppSecWorkshop03/Data/OrderRepository.cs:3`
+### 3) IDOR vuln vs secure
 
 ```powershell
 $BaseUrl = 'http://localhost:5103'
 
-Invoke-RestMethod -Uri "$BaseUrl/vuln/idor/orders/2?username=alice" -Method Get
+Invoke-RestMethod -Uri "$BaseUrl/vuln/idor/orders/1002?username=alice" -Method Get
 
 try {
-    Invoke-RestMethod -Uri "$BaseUrl/secure/idor/orders/2?username=alice" -Method Get -ErrorAction Stop
+    Invoke-RestMethod -Uri "$BaseUrl/secure/idor/orders/1002?username=alice" -Method Get -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
 
-Invoke-RestMethod -Uri "$BaseUrl/secure/idor/orders/2?username=admin" -Method Get
+Invoke-RestMethod -Uri "$BaseUrl/secure/idor/orders/1002?username=bob" -Method Get
 ```
 
-Resultat attendu:
+Attendu:
 
 - `vuln`: acces direct possible
-- `secure`: `403` pour utilisateur non autorise, acces admin autorise
+- `secure`: `403` pour utilisateur non proprietaire, acces admin autorise
 
-## Verifications
+## URL ACL Windows (si besoin)
 
-- Token vulnerable reutilisable facilement
-- Validation secure impose en-tete token
-- Actions de deserialisation whitelistes
-- Controle d'acces objet actif sur endpoint secure
-
-## Depannage
-
-- Si `401` sur `/secure/session/profile`, verifier `X-Session-Token` et `User-Agent`.
-- Si `404` sur commandes IDOR, utiliser un id existant (ex: `1` ou `2`).
-
-## Nettoyage / Reset
+Si `HttpListener` retourne `Access denied`, executer une fois en PowerShell administrateur:
 
 ```powershell
-# Dans le terminal API
-# Ctrl+C
-
-if (Test-Path .\03-NET48) { Set-Location .\03-NET48 }
-dotnet clean .\AppSecWorkshop03\AppSecWorkshop03.csproj
+netsh http add urlacl url=http://localhost:5103/ user=$env:USERNAME
 ```
 
-## Diagramme Mermaid
+## Nettoyage
 
-```mermaid
-flowchart TD
-    A[Client] --> B[Session module]
-    A --> C[Deserialization module]
-    A --> D[IDOR module]
-    B --> E[Secure checks]
-    C --> E
-    D --> E
+```powershell
+dotnet clean .\03-NET48\AppSecWorkshop03\AppSecWorkshop03.csproj
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

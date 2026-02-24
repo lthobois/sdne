@@ -1,4 +1,4 @@
-param([string]$BaseUrl = "http://localhost:5156")
+param([string]$BaseUrl = "http://localhost:5103")
 
 function Api($Method, $Path, $Body = $null, $Headers = @{}) {
   Write-Host "`n=== $Method $Path ==="
@@ -12,8 +12,8 @@ function Api($Method, $Path, $Body = $null, $Headers = @{}) {
 
 Api POST "/vuln/session/login" @{ username = "alice" }
 Api GET "/vuln/session/profile?token=YWxpY2U6d29ya3Nob3Atc2Vzc2lvbg=="
-$secure = Api POST "/secure/session/login" @{ username = "alice" }
-Api GET "/secure/session/profile" $null @{ 'X-Session-Token' = $secure.token }
+$secure = Api POST "/secure/session/login" @{ username = "alice" } @{ 'User-Agent' = 'WorkshopAgent/1.0' }
+Api GET "/secure/session/profile" $null @{ 'X-Session-Token' = $secure.token; 'User-Agent' = 'WorkshopAgent/1.0' }
 
 $danger = '{"$type":"AppSecWorkshop03.Serialization.DangerousAction, AppSecWorkshop03","FileName":"owned-by-deserialization.txt","Content":"Payload deserialize"}'
 Invoke-RestMethod -Method Post -Uri "$BaseUrl/vuln/deserialization/execute" -ContentType "application/json" -Body $danger

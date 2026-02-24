@@ -1,4 +1,4 @@
-@AuthzHardeningLab_HostAddress = http://localhost:5128
+@AuthzHardeningLab_HostAddress = http://localhost:5109
 @aliceReadToken = paste_secure_token_here
 @bobPublishToken = paste_secure_token_here
 

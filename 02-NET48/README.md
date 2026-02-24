@@ -1,59 +1,38 @@
-﻿# Atelier 02 - SQLi, XSS, CSRF, SSRF (.NET Framework 4.8)
+# Atelier 02 - SQLi, XSS, CSRF, SSRF (.NET Framework 4.8)
 
-## Mode compatibilite NET48
+## Objectif
 
-Cette variante est executable en .NET Framework 4.8 avec un hote HTTP de compatibilite. Les routes des ateliers NET10 sont reprises (methodes + chemins), avec des comportements vulnerables/securises reproduits en mode pedagogique net48.
+Atelier NET48 de comparaison `vuln` vs `secure` pour:
+
+- SQL Injection
+- XSS reflechi
+- CSRF
+- SSRF
+
+Implementation reelle: `02-NET48/AppSecWorkshop02/Program.cs`.
 
 ## Pre-requis
 
-- Etre positionne a la racine du depot `sdne`
-- .NET Framework 4.8 (Developer Pack) installe
+- Windows avec .NET Framework 4.8 Developer Pack
+- .NET SDK installe (`dotnet --version`)
 - PowerShell 5.1+
+- Positionne a la racine du depot `sdne`
 
-
-## Execution .NET Framework 4.8 avec dotnet
-
-Oui, ces ateliers NET48 sont lances via la CLI `dotnet` car les projets sont au format SDK (`TargetFramework=net48`).
-
-Pre-requis complementaires:
-- .NET SDK installe (commande `dotnet` disponible)
-- .NET Framework 4.8 Developer Pack installe
-
-Commandes type:
-```powershell
-dotnet restore .\Atelier02.slnx
-dotnet build .\Atelier02.slnx
-dotnet run --project .\<Projet>\<Projet>.csproj --urls=http://localhost:5102
-```
-
-Si `HttpListener` retourne `Access denied` (Windows URL ACL), executer une fois en administrateur:
-```powershell
-netsh http add urlacl url=http://localhost:5102/ user=%USERNAME%
-```
-## Etape 1 - Initialiser et lancer l'API
-
-Objectif: restaurer, compiler et lancer l'atelier.
-
-Code source a observer:
-- `02-NET48/AppSecWorkshop02/Program.cs:22`
-- `02-NET48/AppSecWorkshop02/Data/DbInitializer.cs:5`
+## Build et lancement
 
 ```powershell
-if (Test-Path .\02-NET48) { Set-Location .\02-NET48 }
-dotnet restore .\AppSecWorkshop02\AppSecWorkshop02.csproj
+dotnet restore .\02-NET48\AppSecWorkshop02\AppSecWorkshop02.csproj
+dotnet build .\02-NET48\AppSecWorkshop02\AppSecWorkshop02.csproj
+
 $BaseUrl = 'http://localhost:5102'
-dotnet run --project .\AppSecWorkshop02\AppSecWorkshop02.csproj --urls=$BaseUrl
+dotnet run --project .\02-NET48\AppSecWorkshop02\AppSecWorkshop02.csproj --urls=$BaseUrl
 ```
 
-Resultat attendu: API active sur `http://localhost:5102`.
+## Verification fonctionnelle
 
-## Etape 2 - SQL Injection: comparer vuln vs secure
+Dans un second terminal:
 
-Objectif: visualiser la difference entre requete concatenee et requete parametree.
-
-Code source a observer:
-- `02-NET48/AppSecWorkshop02/Program.cs:29`
-- `02-NET48/AppSecWorkshop02/Program.cs:53`
+### 1) SQLi
 
 ```powershell
 $BaseUrl = 'http://localhost:5102'
@@ -63,18 +42,12 @@ Invoke-RestMethod -Uri "$BaseUrl/vuln/sql/users?username=$([uri]::EscapeDataStri
 Invoke-RestMethod -Uri "$BaseUrl/secure/sql/users?username=$([uri]::EscapeDataString($payload))" -Method Get
 ```
 
-Resultat attendu:
+Attendu:
 
-- `vuln`: plusieurs utilisateurs peuvent etre renvoyes
-- `secure`: pas de contournement SQL
+- `vuln`: renvoie plusieurs utilisateurs
+- `secure`: ne contourne pas le filtrage (liste vide pour ce payload)
 
-## Etape 3 - XSS reflechi
-
-Objectif: comparer sortie HTML non encodee vs encodee.
-
-Code source a observer:
-- `02-NET48/AppSecWorkshop02/Program.cs:77`
-- `02-NET48/AppSecWorkshop02/Program.cs:90`
+### 2) XSS
 
 ```powershell
 $BaseUrl = 'http://localhost:5102'
@@ -84,20 +57,12 @@ Invoke-WebRequest -Uri "$BaseUrl/vuln/xss?input=$([uri]::EscapeDataString($paylo
 Invoke-WebRequest -Uri "$BaseUrl/secure/xss?input=$([uri]::EscapeDataString($payload))" -Method Get | Select-Object -ExpandProperty Content
 ```
 
-Resultat attendu:
+Attendu:
 
-- `vuln`: balise script presente telle quelle
-- `secure`: contenu encode HTML
+- `vuln`: balise non encodee
+- `secure`: balise encodee HTML
 
-## Etape 4 - CSRF
-
-Objectif: reproduire un transfert sans token puis avec token valide.
-
-Code source a observer:
-- `02-NET48/AppSecWorkshop02/Program.cs:104`
-- `02-NET48/AppSecWorkshop02/Program.cs:123`
-- `02-NET48/AppSecWorkshop02/Program.cs:145`
-- `02-NET48/AppSecWorkshop02/Security/SessionStore.cs:7`
+### 3) CSRF
 
 ```powershell
 $BaseUrl = 'http://localhost:5102'
@@ -114,26 +79,19 @@ Invoke-RestMethod -Uri "$BaseUrl/vuln/csrf/transfer" -Method Post -WebSession $s
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/csrf/transfer" -Method Post -WebSession $session -ContentType 'application/json' -Body $transferBody -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
 
 $headers = @{ 'X-CSRF-Token' = $csrf }
 Invoke-RestMethod -Uri "$BaseUrl/secure/csrf/transfer" -Method Post -WebSession $session -Headers $headers -ContentType 'application/json' -Body $transferBody
 ```
 
-Resultat attendu:
+Attendu:
 
-- endpoint `vuln`: accepte sans token
-- endpoint `secure`: refuse sans token (`403`), accepte avec token correct
+- `vuln`: accepte sans token
+- `secure`: `403` sans token, `200` avec token valide
 
-## Etape 5 - SSRF
-
-Objectif: verifier le filtrage d'URL sortante.
-
-Code source a observer:
-- `02-NET48/AppSecWorkshop02/Program.cs:172`
-- `02-NET48/AppSecWorkshop02/Program.cs:180`
-- `02-NET48/AppSecWorkshop02/Security/SsrfGuard.cs:14`
+### 4) SSRF
 
 ```powershell
 $BaseUrl = 'http://localhost:5102'
@@ -143,57 +101,30 @@ Invoke-RestMethod -Uri "$BaseUrl/secure/ssrf/fetch?url=$([uri]::EscapeDataString
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/ssrf/fetch?url=$([uri]::EscapeDataString('http://127.0.0.1:80'))" -Method Get -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
 ```
 
-Resultat attendu: URL sensible/localhost rejetee sur endpoint `secure`.
+Attendu:
 
-## Verifications
+- `secure`: bloque localhost/IP sensible (HTTP `400`)
 
-- SQLi observable sur `vuln`, bloquee sur `secure`
-- XSS encode sur `secure`
-- CSRF protege par en-tete `X-CSRF-Token`
-- SSRF controle par validation d'URL
+## URL ACL Windows (si besoin)
 
-## Depannage
-
-- Si `403` sur transfert secure avec token, verifier l'en-tete exact `X-CSRF-Token`.
-- Si erreur base SQLite, relancer l'API pour reinitialiser `workshop.db`.
-
-## Nettoyage / Reset
+Si `HttpListener` retourne `Access denied`, executer une fois en PowerShell administrateur:
 
 ```powershell
-# Dans le terminal API
-# Ctrl+C
-
-if (Test-Path .\02-NET48) { Set-Location .\02-NET48 }
-Remove-Item .\workshop.db -ErrorAction SilentlyContinue
-dotnet clean .\AppSecWorkshop02\AppSecWorkshop02.csproj
+netsh http add urlacl url=http://localhost:5102/ user=$env:USERNAME
 ```
 
-## Diagramme Mermaid
+Si conflit de prefixe:
 
-```mermaid
-flowchart TD
-    A[Client] --> B[API Atelier 02]
-    B --> C[SQLi checks]
-    B --> D[XSS checks]
-    B --> E[CSRF checks]
-    B --> F[SSRF checks]
+```powershell
+netsh http show urlacl
 ```
 
+## Nettoyage
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+```powershell
+dotnet clean .\02-NET48\AppSecWorkshop02\AppSecWorkshop02.csproj
+```
