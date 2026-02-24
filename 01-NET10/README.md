@@ -13,35 +13,10 @@ Mettre en pratique un flux HTTP Basic avec comparaison entre:
 - .NET SDK 10.x installe
 - PowerShell 5.1+
 
-## Lignes de code a verifier (pedagogie)
-
-Configuration auth/autorisation:
-- `01-NET10/BasicAuthWorkshop/Program.cs:10`
-- `01-NET10/BasicAuthWorkshop/Program.cs:16`
-- `01-NET10/BasicAuthWorkshop/Program.cs:32`
-- `01-NET10/BasicAuthWorkshop/Program.cs:33`
-
-Endpoints proteges:
-- `01-NET10/BasicAuthWorkshop/Program.cs:47`
-- `01-NET10/BasicAuthWorkshop/Program.cs:61`
-
-Traitement du header Basic:
-- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:24`
-- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:32`
-- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:44`
-- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:60`
-- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:76`
-
-Comptes de demo en memoire:
-- `01-NET10/BasicAuthWorkshop/Auth/InMemoryWorkshopUserStore.cs:8`
-- `01-NET10/BasicAuthWorkshop/Auth/InMemoryWorkshopUserStore.cs:9`
-
-Tests d'integration utilises dans l'atelier:
-- `01-NET10/BasicAuthWorkshop.Tests/BasicAuthTests.cs:25`
-- `01-NET10/BasicAuthWorkshop.Tests/BasicAuthTests.cs:33`
-- `01-NET10/BasicAuthWorkshop.Tests/BasicAuthTests.cs:43`
-
 ## Etape 1 - Restaurer la solution atelier
+
+Code source a verifier (etape):
+- `01-NET10/Atelier01.slnx`
 
 ```powershell
 dotnet restore .\01-NET10\Atelier01.slnx
@@ -51,6 +26,10 @@ Resultat attendu: restauration sans erreur.
 
 ## Etape 2 - Builder la solution atelier
 
+Code source a verifier (etape):
+- `01-NET10/BasicAuthWorkshop/BasicAuthWorkshop.csproj`
+- `01-NET10/BasicAuthWorkshop.Tests/BasicAuthWorkshop.Tests.csproj`
+
 ```powershell
 dotnet build .\01-NET10\Atelier01.slnx
 ```
@@ -58,6 +37,13 @@ dotnet build .\01-NET10\Atelier01.slnx
 Resultat attendu: build `net10.0` sans erreur.
 
 ## Etape 3 - Lancer l'API
+
+Code source a verifier (etape):
+- `01-NET10/BasicAuthWorkshop/Program.cs:10`
+- `01-NET10/BasicAuthWorkshop/Program.cs:16`
+- `01-NET10/BasicAuthWorkshop/Program.cs:32`
+- `01-NET10/BasicAuthWorkshop/Program.cs:33`
+- `01-NET10/BasicAuthWorkshop/Properties/launchSettings.json:8`
 
 ```powershell
 $BaseUrl = 'http://localhost:5101'
@@ -67,6 +53,9 @@ dotnet run --project .\01-NET10\BasicAuthWorkshop\BasicAuthWorkshop.csproj --url
 Resultat attendu: API en ecoute sur `http://localhost:5101`.
 
 ## Etape 4 - Verifier l'endpoint public
+
+Code source a verifier (etape):
+- `01-NET10/BasicAuthWorkshop/Program.cs:41`
 
 Dans un second terminal:
 
@@ -78,6 +67,11 @@ Invoke-RestMethod -Uri "$BaseUrl/public" -Method Get
 Resultat attendu: `200` avec `resource = public`.
 
 ## Etape 5 - Verifier le refus sans credentials
+
+Code source a verifier (etape):
+- `01-NET10/BasicAuthWorkshop/Program.cs:47`
+- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:24`
+- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:76`
 
 ```powershell
 $BaseUrl = 'http://localhost:5101'
@@ -92,6 +86,12 @@ Resultat attendu: `401`.
 
 ## Etape 6 - Verifier l'authentification utilisateur
 
+Code source a verifier (etape):
+- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:32`
+- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:44`
+- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:60`
+- `01-NET10/BasicAuthWorkshop/Auth/InMemoryWorkshopUserStore.cs:8`
+
 ```powershell
 $BaseUrl = 'http://localhost:5101'
 $alice = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('alice:P@ssw0rd!'))
@@ -102,6 +102,11 @@ Invoke-RestMethod -Uri "$BaseUrl/secure/profile" -Headers $headersAlice -Method 
 Resultat attendu: `200`, utilisateur `alice`.
 
 ## Etape 7 - Verifier l'autorisation par role
+
+Code source a verifier (etape):
+- `01-NET10/BasicAuthWorkshop/Program.cs:61`
+- `01-NET10/BasicAuthWorkshop/Program.cs:64`
+- `01-NET10/BasicAuthWorkshop/Auth/InMemoryWorkshopUserStore.cs:9`
 
 ```powershell
 $BaseUrl = 'http://localhost:5101'
@@ -124,6 +129,11 @@ Resultats attendus:
 - `bob` -> `200`
 
 ## Etape 8 - Executer les tests d'integration
+
+Code source a verifier (etape):
+- `01-NET10/BasicAuthWorkshop.Tests/BasicAuthTests.cs:25`
+- `01-NET10/BasicAuthWorkshop.Tests/BasicAuthTests.cs:33`
+- `01-NET10/BasicAuthWorkshop.Tests/BasicAuthTests.cs:43`
 
 ```powershell
 dotnet test .\01-NET10\Atelier01.slnx
