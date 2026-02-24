@@ -1,4 +1,11 @@
-﻿# Atelier 01 - HTTP Basic Auth (.NET 10)
+# Atelier 01 - HTTP Basic Auth (.NET 10)
+
+## Objectif
+
+Valider un flux HTTP Basic simple:
+- `/public`: acces anonyme
+- `/secure/profile`: authentification requise
+- `/secure/admin`: role `Admin` requis
 
 ## Pre-requis
 
@@ -6,156 +13,100 @@
 - .NET SDK 10.x installe
 - PowerShell 5.1+
 
-## Etape 1 - Initialiser l'atelier
+## Lignes de code a verifier (pedagogie)
 
-Objectif: restaurer les dependances et preparer l'execution locale.
-
-Code source a observer:
+Configuration auth/autorisation:
 - `01-NET10/BasicAuthWorkshop/Program.cs:10`
 - `01-NET10/BasicAuthWorkshop/Program.cs:16`
-- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:24`
-
-```powershell
-if (Test-Path .\01-NET10) { Set-Location .\01-NET10 }
-dotnet restore .\BasicAuthWorkshop\BasicAuthWorkshop.csproj
-```
-
-Resultat attendu: restauration terminee sans erreur.
-
-## Etape 2 - Lancer l'API
-
-Objectif: demarrer le service localement sur un port fixe.
-
-Code source a observer:
-- `01-NET10/BasicAuthWorkshop/Program.cs:27`
 - `01-NET10/BasicAuthWorkshop/Program.cs:32`
+- `01-NET10/BasicAuthWorkshop/Program.cs:33`
+
+Endpoints proteges:
+- `01-NET10/BasicAuthWorkshop/Program.cs:47`
+- `01-NET10/BasicAuthWorkshop/Program.cs:61`
+
+Traitement du header Basic:
+- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:24`
+- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:32`
+- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:44`
+- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:60`
+- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:76`
+
+Comptes de demo en memoire:
+- `01-NET10/BasicAuthWorkshop/Auth/InMemoryWorkshopUserStore.cs:8`
+- `01-NET10/BasicAuthWorkshop/Auth/InMemoryWorkshopUserStore.cs:9`
+
+Tests d'integration:
+- `01-NET10/BasicAuthWorkshop.Tests/BasicAuthTests.cs:25`
+- `01-NET10/BasicAuthWorkshop.Tests/BasicAuthTests.cs:33`
+- `01-NET10/BasicAuthWorkshop.Tests/BasicAuthTests.cs:43`
+
+## Build et tests
 
 ```powershell
-$BaseUrl = 'http://localhost:5101'
-dotnet run --project .\BasicAuthWorkshop\BasicAuthWorkshop.csproj --urls=$BaseUrl
+dotnet restore .\01-NET10\Atelier01.slnx
+dotnet build .\01-NET10\Atelier01.slnx
+dotnet test .\01-NET10\Atelier01.slnx
 ```
 
-Resultat attendu: message `Now listening on: http://localhost:5101`.
+Option script:
 
-## Etape 3 - Tester endpoint public
+```powershell
+.\01-NET10\scripts\run-auth-checks.ps1
+```
 
-Objectif: verifier l'acces anonyme.
-
-Code source a observer:
-- `01-NET10/BasicAuthWorkshop/Program.cs:38`
-
-Execution dans un second terminal PowerShell (laisser l'API active):
+## Execution API
 
 ```powershell
 $BaseUrl = 'http://localhost:5101'
+dotnet run --project .\01-NET10\BasicAuthWorkshop\BasicAuthWorkshop.csproj --urls=$BaseUrl
+```
+
+## Verification manuelle rapide
+
+Dans un second terminal:
+
+```powershell
+$BaseUrl = 'http://localhost:5101'
+
 Invoke-RestMethod -Uri "$BaseUrl/public" -Method Get
-```
 
-Resultat attendu: reponse JSON avec `resource = public`.
-
-## Etape 4 - Tester endpoint protege sans authentification
-
-Objectif: observer le refus d'acces.
-
-Code source a observer:
-- `01-NET10/BasicAuthWorkshop/Program.cs:44`
-- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:26`
-
-```powershell
-$BaseUrl = 'http://localhost:5101'
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/profile" -Method Get -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
-```
 
-Resultat attendu: code HTTP `401`.
+$alice = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('alice:P@ssw0rd!'))
+$headersAlice = @{ Authorization = "Basic $alice" }
+Invoke-RestMethod -Uri "$BaseUrl/secure/profile" -Headers $headersAlice -Method Get
 
-## Etape 5 - Tester HTTP Basic utilisateur standard
-
-Objectif: acceder a la ressource securisee avec identifiants valides.
-
-Code source a observer:
-- `01-NET10/BasicAuthWorkshop/Auth/BasicAuthenticationHandler.cs:24`
-- `01-NET10/BasicAuthWorkshop/Auth/InMemoryWorkshopUserStore.cs:3`
-
-```powershell
-$BaseUrl = 'http://localhost:5101'
-$pair = 'analyst:Passw0rd!'
-$token = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
-$headers = @{ Authorization = "Basic $token" }
-Invoke-RestMethod -Uri "$BaseUrl/secure/profile" -Headers $headers -Method Get
-```
-
-Resultat attendu: reponse JSON contenant `user` et `roles`.
-
-## Etape 6 - Tester policy AdminOnly
-
-Objectif: comparer un compte non admin et un compte admin.
-
-Code source a observer:
-- `01-NET10/BasicAuthWorkshop/Program.cs:16`
-- `01-NET10/BasicAuthWorkshop/Program.cs:58`
-
-```powershell
-$BaseUrl = 'http://localhost:5101'
-
-$tokenUser = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes('analyst:Passw0rd!'))
-$headersUser = @{ Authorization = "Basic $tokenUser" }
 try {
-    Invoke-RestMethod -Uri "$BaseUrl/secure/admin" -Headers $headersUser -Method Get -ErrorAction Stop
+    Invoke-RestMethod -Uri "$BaseUrl/secure/admin" -Headers $headersAlice -Method Get -ErrorAction Stop
 } catch {
-    $_.Exception.Response.StatusCode.value__
+    [int]$_.Exception.Response.StatusCode
 }
 
-$tokenAdmin = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes('admin:Adm1nPass!'))
-$headersAdmin = @{ Authorization = "Basic $tokenAdmin" }
-Invoke-RestMethod -Uri "$BaseUrl/secure/admin" -Headers $headersAdmin -Method Get
+$bob = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('bob:Admin123!'))
+$headersBob = @{ Authorization = "Basic $bob" }
+Invoke-RestMethod -Uri "$BaseUrl/secure/admin" -Headers $headersBob -Method Get
 ```
 
-Resultat attendu:
+Attendus:
+- `/public` -> `200`
+- `/secure/profile` sans header -> `401`
+- `/secure/profile` avec `alice` -> `200`
+- `/secure/admin` avec `alice` -> `403`
+- `/secure/admin` avec `bob` -> `200`
 
-- premier appel: `403`
-- second appel: JSON avec message d'acces admin.
+## Fichiers utiles
 
-## Verifications
+- `01-NET10/BasicAuthWorkshop/BasicAuthWorkshop.http`
+- `01-NET10/scripts/calls.ps1`
+- `01-NET10/pipeline/basic-auth-ci.yml`
 
-- `401` sans credentials
-- `200` sur `/secure/profile` avec credentials valides
-- `403` puis `200` sur `/secure/admin` selon role
-
-## Depannage
-
-- Si tous les acces renvoient `401`, verifier la valeur de l'en-tete `Authorization`.
-- Si `Connection refused`, verifier que l'API ecoute bien sur `http://localhost:5101`.
-
-## Nettoyage / Reset
+## Nettoyage
 
 ```powershell
-# Dans le terminal API
-# Ctrl+C
-
-if (Test-Path .\01-NET10) { Set-Location .\01-NET10 }
-dotnet clean .\BasicAuthWorkshop\BasicAuthWorkshop.csproj
+dotnet clean .\01-NET10\Atelier01.slnx
 ```
-
-## Diagramme Mermaid
-
-```mermaid
-flowchart TD
-    A[Client] --> B[API Atelier 01]
-    B --> C[Public endpoint]
-    B --> D[Secure profile]
-    B --> E[Secure admin role check]
-```
-
-
-
-
-
-
-
-
-
-

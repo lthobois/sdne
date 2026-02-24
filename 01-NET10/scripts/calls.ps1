@@ -1,4 +1,4 @@
-param([string]$BaseUrl = "http://localhost:5098")
+param([string]$BaseUrl = "http://localhost:5101")
 
 function Call($Method, $Path, $Headers = @{}, $Body = $null) {
   Write-Host "`n=== $Method $Path ==="

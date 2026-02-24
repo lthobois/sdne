@@ -29,6 +29,9 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapGet("/", () => Results.Ok(new
 {
     workshop = "Atelier 01 - HTTP Basic",
@@ -58,7 +61,9 @@ app.MapGet("/secure/profile", [Authorize] (HttpContext httpContext) =>
 app.MapGet("/secure/admin", [Authorize(Policy = "AdminOnly")] () => Results.Ok(new
 {
     resource = "secure/admin",
-    message = "Accès autorisé pour le rôle Admin."
+    message = "Acces autorise pour le role Admin."
 }));
 
 app.Run();
+
+public partial class Program;
