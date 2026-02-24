@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="BasicAuthWorkshop/BasicAuthWorkshop.csproj" />
+  <Project Path="BasicAuthWorkshop.Tests/BasicAuthWorkshop.Tests.csproj" />
+</Solution>

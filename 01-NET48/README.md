@@ -2,137 +2,97 @@
 
 ## Objectif
 
-Valider un flux d'authentification HTTP Basic sur une API pedagogique NET48:
-
-- `/public`: acces anonyme
-- `/secure/profile`: authentification requise
-- `/secure/admin`: role `Admin` requis
-
-Implementation reelle: `01-NET48/BasicAuthWorkshop/Program.cs`.
+Comparer l'acces public, l'authentification Basic et l'autorisation par role.
 
 ## Pre-requis
 
-- Windows avec .NET Framework 4.8 Developer Pack
-- .NET SDK installe (`dotnet --version`)
+- Windows + .NET Framework 4.8 Developer Pack
+- .NET SDK installe
 - PowerShell 5.1+
-- Positionne a la racine du depot `sdne`
 
-## Build
+## Etape 1 - Restaurer et builder
+
+Code source a verifier (etape):
+- `01-NET48/Atelier01.slnx`
+- `01-NET48/BasicAuthWorkshop/BasicAuthWorkshop.csproj`
 
 ```powershell
-dotnet restore .\01-NET48\BasicAuthWorkshop\BasicAuthWorkshop.csproj
-dotnet build .\01-NET48\BasicAuthWorkshop\BasicAuthWorkshop.csproj
+dotnet restore .\01-NET48\Atelier01.slnx
+dotnet build .\01-NET48\Atelier01.slnx
 ```
 
-Resultat attendu: build `net48` sans erreur.
+## Etape 2 - Lancer l'API
 
-## Execution
+Code source a verifier (etape):
+- `01-NET48/BasicAuthWorkshop/Program.cs:23`
+- `01-NET48/BasicAuthWorkshop/Program.cs:67`
+- `01-NET48/BasicAuthWorkshop/Properties/launchSettings.json:8`
 
 ```powershell
 $BaseUrl = 'http://localhost:5101'
 dotnet run --project .\01-NET48\BasicAuthWorkshop\BasicAuthWorkshop.csproj --urls=$BaseUrl
 ```
 
-Le process reste actif et expose les routes HTTP.
+## Etape 3 - Endpoint public
 
-## Verification fonctionnelle
-
-Dans un second terminal:
-
-### 1) Endpoint public
+Code source a verifier (etape):
+- `01-NET48/BasicAuthWorkshop/Program.cs:85`
 
 ```powershell
 $BaseUrl = 'http://localhost:5101'
 Invoke-RestMethod -Uri "$BaseUrl/public" -Method Get
 ```
 
-Attendu: HTTP 200, JSON avec `resource = "public"`.
+## Etape 4 - Authentification Basic
 
-### 2) Endpoint protege sans credentials
-
-```powershell
-$BaseUrl = 'http://localhost:5101'
-try {
-    Invoke-RestMethod -Uri "$BaseUrl/secure/profile" -Method Get -ErrorAction Stop
-} catch {
-    [int]$_.Exception.Response.StatusCode
-}
-```
-
-Attendu: `401`.
-
-### 3) Endpoint protege avec utilisateur standard
+Code source a verifier (etape):
+- `01-NET48/BasicAuthWorkshop/Program.cs:91`
+- `01-NET48/BasicAuthWorkshop/Program.cs:115`
+- `01-NET48/BasicAuthWorkshop/Program.cs:145`
 
 ```powershell
 $BaseUrl = 'http://localhost:5101'
-$token = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes('analyst:Passw0rd!'))
-$headers = @{ Authorization = "Basic $token" }
+$analyst = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes('analyst:Passw0rd!'))
+$headers = @{ Authorization = "Basic $analyst" }
 Invoke-RestMethod -Uri "$BaseUrl/secure/profile" -Headers $headers -Method Get
 ```
 
-Attendu: HTTP 200, JSON avec `user = "analyst"` et role `User`.
+## Etape 5 - Autorisation role Admin
 
-### 4) Controle d'acces admin
+Code source a verifier (etape):
+- `01-NET48/BasicAuthWorkshop/Program.cs:106`
+- `01-NET48/BasicAuthWorkshop/Program.cs:112`
 
 ```powershell
 $BaseUrl = 'http://localhost:5101'
-
-$tokenUser = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes('analyst:Passw0rd!'))
-$headersUser = @{ Authorization = "Basic $tokenUser" }
+$analyst = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes('analyst:Passw0rd!'))
+$admin = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes('admin:Adm1nPass!'))
 try {
-    Invoke-RestMethod -Uri "$BaseUrl/secure/admin" -Headers $headersUser -Method Get -ErrorAction Stop
+  Invoke-RestMethod -Uri "$BaseUrl/secure/admin" -Headers @{ Authorization = "Basic $analyst" } -Method Get -ErrorAction Stop
 } catch {
-    [int]$_.Exception.Response.StatusCode
+  $_.Exception.Response.StatusCode.value__
 }
-
-$tokenAdmin = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes('admin:Adm1nPass!'))
-$headersAdmin = @{ Authorization = "Basic $tokenAdmin" }
-Invoke-RestMethod -Uri "$BaseUrl/secure/admin" -Headers $headersAdmin -Method Get
+Invoke-RestMethod -Uri "$BaseUrl/secure/admin" -Headers @{ Authorization = "Basic $admin" } -Method Get
 ```
 
-Attendu:
+## Etape 6 - Tests atelier
 
-- compte `analyst`: `403`
-- compte `admin`: HTTP 200
-
-## Comptes de demo
-
-- `analyst / Passw0rd!` -> role `User`
-- `admin / Adm1nPass!` -> roles `User`, `Admin`
-
-## Depannage
-
-### Erreur `Access denied` au demarrage (HttpListener)
-
-Executer une seule fois en PowerShell administrateur:
+Code source a verifier (etape):
+- `01-NET48/BasicAuthWorkshop.Tests/SmokeTests.cs:5`
 
 ```powershell
-netsh http add urlacl url=http://localhost:5101/ user=$env:USERNAME
+dotnet test .\01-NET48\Atelier01.slnx
 ```
 
-### Erreur `prefix is in conflict`
-
-Le prefixe est deja reserve/utilise.
-
-Option 1: utiliser un autre port
+## Scripts stagiaires (support)
 
 ```powershell
-$BaseUrl = 'http://localhost:5199'
-dotnet run --project .\01-NET48\BasicAuthWorkshop\BasicAuthWorkshop.csproj --urls=$BaseUrl
+.\01-NET48\scripts\run-auth-checks.ps1
+.\01-NET48\scripts\calls.ps1
 ```
 
-Option 2: nettoyer une reservation URL ACL obsolete (admin)
+## Nettoyage
 
 ```powershell
-netsh http show urlacl
-netsh http delete urlacl url=http://localhost:5101/
-```
-
-## Arret et nettoyage
-
-- arreter l'API: `Ctrl+C`
-- nettoyage:
-
-```powershell
-dotnet clean .\01-NET48\BasicAuthWorkshop\BasicAuthWorkshop.csproj
+dotnet clean .\01-NET48\Atelier01.slnx
 ```

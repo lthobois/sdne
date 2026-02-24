@@ -1,0 +1,31 @@
+name: Basic Auth NET48 CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  basic-auth48-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 01-NET48
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore ./Atelier01.slnx
+
+      - name: Build
+        run: dotnet build ./Atelier01.slnx --no-restore
+
+      - name: Test
+        run: dotnet test ./Atelier01.slnx --no-build --verbosity normal

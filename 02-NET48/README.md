@@ -2,129 +2,112 @@
 
 ## Objectif
 
-Atelier NET48 de comparaison `vuln` vs `secure` pour:
-
-- SQL Injection
-- XSS reflechi
-- CSRF
-- SSRF
-
-Implementation reelle: `02-NET48/AppSecWorkshop02/Program.cs`.
+Comparer les routes `vuln` et `secure` sur SQLi, XSS, CSRF et SSRF.
 
 ## Pre-requis
 
-- Windows avec .NET Framework 4.8 Developer Pack
-- .NET SDK installe (`dotnet --version`)
+- Windows + .NET Framework 4.8 Developer Pack
+- .NET SDK installe
 - PowerShell 5.1+
-- Positionne a la racine du depot `sdne`
 
-## Build et lancement
+## Etape 1 - Restaurer et builder
+
+Code source a verifier (etape):
+- `02-NET48/Atelier02.slnx`
+- `02-NET48/AppSecWorkshop02/AppSecWorkshop02.csproj`
 
 ```powershell
-dotnet restore .\02-NET48\AppSecWorkshop02\AppSecWorkshop02.csproj
-dotnet build .\02-NET48\AppSecWorkshop02\AppSecWorkshop02.csproj
+dotnet restore .\02-NET48\Atelier02.slnx
+dotnet build .\02-NET48\Atelier02.slnx
+```
 
+## Etape 2 - Lancer l'API
+
+Code source a verifier (etape):
+- `02-NET48/AppSecWorkshop02/Program.cs:34`
+- `02-NET48/AppSecWorkshop02/Program.cs:85`
+
+```powershell
 $BaseUrl = 'http://localhost:5102'
 dotnet run --project .\02-NET48\AppSecWorkshop02\AppSecWorkshop02.csproj --urls=$BaseUrl
 ```
 
-## Verification fonctionnelle
+## Etape 3 - SQL Injection
 
-Dans un second terminal:
-
-### 1) SQLi
+Code source a verifier (etape):
+- `02-NET48/AppSecWorkshop02/Program.cs:104`
+- `02-NET48/AppSecWorkshop02/Program.cs:110`
+- `02-NET48/AppSecWorkshop02/Program.cs:223`
 
 ```powershell
 $BaseUrl = 'http://localhost:5102'
 $payload = "alice' OR 1=1 --"
-
 Invoke-RestMethod -Uri "$BaseUrl/vuln/sql/users?username=$([uri]::EscapeDataString($payload))" -Method Get
 Invoke-RestMethod -Uri "$BaseUrl/secure/sql/users?username=$([uri]::EscapeDataString($payload))" -Method Get
 ```
 
-Attendu:
+## Etape 4 - XSS
 
-- `vuln`: renvoie plusieurs utilisateurs
-- `secure`: ne contourne pas le filtrage (liste vide pour ce payload)
-
-### 2) XSS
+Code source a verifier (etape):
+- `02-NET48/AppSecWorkshop02/Program.cs:116`
+- `02-NET48/AppSecWorkshop02/Program.cs:124`
 
 ```powershell
 $BaseUrl = 'http://localhost:5102'
 $payload = '<script>alert("xss")</script>'
-
-Invoke-WebRequest -Uri "$BaseUrl/vuln/xss?input=$([uri]::EscapeDataString($payload))" -Method Get | Select-Object -ExpandProperty Content
-Invoke-WebRequest -Uri "$BaseUrl/secure/xss?input=$([uri]::EscapeDataString($payload))" -Method Get | Select-Object -ExpandProperty Content
+Invoke-WebRequest -Uri "$BaseUrl/vuln/xss?input=$([uri]::EscapeDataString($payload))" | Select-Object -ExpandProperty Content
+Invoke-WebRequest -Uri "$BaseUrl/secure/xss?input=$([uri]::EscapeDataString($payload))" | Select-Object -ExpandProperty Content
 ```
 
-Attendu:
+## Etape 5 - CSRF
 
-- `vuln`: balise non encodee
-- `secure`: balise encodee HTML
-
-### 3) CSRF
+Code source a verifier (etape):
+- `02-NET48/AppSecWorkshop02/Program.cs:135`
+- `02-NET48/AppSecWorkshop02/Program.cs:149`
+- `02-NET48/AppSecWorkshop02/Program.cs:164`
+- `02-NET48/AppSecWorkshop02/Program.cs:173`
 
 ```powershell
 $BaseUrl = 'http://localhost:5102'
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-
-$loginBody = @{ username = 'alice' } | ConvertTo-Json
-$login = Invoke-RestMethod -Uri "$BaseUrl/auth/login" -Method Post -WebSession $session -ContentType 'application/json' -Body $loginBody
+$login = Invoke-RestMethod -Uri "$BaseUrl/auth/login" -Method Post -WebSession $session -ContentType 'application/json' -Body (@{ username='alice' } | ConvertTo-Json)
 $csrf = $login.csrfToken
-
-$transferBody = @{ to = 'bob'; amount = 150 } | ConvertTo-Json
-
-Invoke-RestMethod -Uri "$BaseUrl/vuln/csrf/transfer" -Method Post -WebSession $session -ContentType 'application/json' -Body $transferBody
-
-try {
-    Invoke-RestMethod -Uri "$BaseUrl/secure/csrf/transfer" -Method Post -WebSession $session -ContentType 'application/json' -Body $transferBody -ErrorAction Stop
-} catch {
-    [int]$_.Exception.Response.StatusCode
-}
-
-$headers = @{ 'X-CSRF-Token' = $csrf }
-Invoke-RestMethod -Uri "$BaseUrl/secure/csrf/transfer" -Method Post -WebSession $session -Headers $headers -ContentType 'application/json' -Body $transferBody
+$body = @{ to='bob'; amount=150 } | ConvertTo-Json
+Invoke-RestMethod -Uri "$BaseUrl/vuln/csrf/transfer" -Method Post -WebSession $session -ContentType 'application/json' -Body $body
+try { Invoke-RestMethod -Uri "$BaseUrl/secure/csrf/transfer" -Method Post -WebSession $session -ContentType 'application/json' -Body $body -ErrorAction Stop } catch { $_.Exception.Response.StatusCode.value__ }
+Invoke-RestMethod -Uri "$BaseUrl/secure/csrf/transfer" -Method Post -WebSession $session -Headers @{ 'X-CSRF-Token'=$csrf } -ContentType 'application/json' -Body $body
 ```
 
-Attendu:
+## Etape 6 - SSRF
 
-- `vuln`: accepte sans token
-- `secure`: `403` sans token, `200` avec token valide
-
-### 4) SSRF
+Code source a verifier (etape):
+- `02-NET48/AppSecWorkshop02/Program.cs:186`
+- `02-NET48/AppSecWorkshop02/Program.cs:194`
+- `02-NET48/AppSecWorkshop02/Program.cs:211`
 
 ```powershell
 $BaseUrl = 'http://localhost:5102'
 Invoke-RestMethod -Uri "$BaseUrl/vuln/ssrf/fetch?url=$([uri]::EscapeDataString('https://example.com'))" -Method Get
-Invoke-RestMethod -Uri "$BaseUrl/secure/ssrf/fetch?url=$([uri]::EscapeDataString('https://example.com'))" -Method Get
-
-try {
-    Invoke-RestMethod -Uri "$BaseUrl/secure/ssrf/fetch?url=$([uri]::EscapeDataString('http://127.0.0.1:80'))" -Method Get -ErrorAction Stop
-} catch {
-    [int]$_.Exception.Response.StatusCode
-}
+try { Invoke-RestMethod -Uri "$BaseUrl/secure/ssrf/fetch?url=$([uri]::EscapeDataString('http://127.0.0.1:80'))" -Method Get -ErrorAction Stop } catch { $_.Exception.Response.StatusCode.value__ }
 ```
 
-Attendu:
+## Etape 7 - Tests atelier
 
-- `secure`: bloque localhost/IP sensible (HTTP `400`)
-
-## URL ACL Windows (si besoin)
-
-Si `HttpListener` retourne `Access denied`, executer une fois en PowerShell administrateur:
+Code source a verifier (etape):
+- `02-NET48/AppSecWorkshop02.Tests/SmokeTests.cs:5`
 
 ```powershell
-netsh http add urlacl url=http://localhost:5102/ user=$env:USERNAME
+dotnet test .\02-NET48\Atelier02.slnx
 ```
 
-Si conflit de prefixe:
+## Scripts stagiaires (support)
 
 ```powershell
-netsh http show urlacl
+.\02-NET48\scripts\calls.ps1
 ```
 
 ## Nettoyage
 
 ```powershell
-dotnet clean .\02-NET48\AppSecWorkshop02\AppSecWorkshop02.csproj
+dotnet clean .\02-NET48\Atelier02.slnx
 ```

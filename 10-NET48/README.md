@@ -1,100 +1,138 @@
 # Atelier 10 - Validation perimetrique (.NET Framework 4.8)
 
-## Mode compatibilite NET48
+## Objectif
 
-Cette piste est executable en .NET Framework 4.8 avec un hote `HttpListener`.
-Les cas pedagogiques couverts sont:
-- injection `X-Forwarded-*` sur generation de liens
-- durcissement de resolution d'origine externe
-- resolution multi-tenant par host
-- endpoint de diagnostic perimetrique
+Valider les controles perimetriques NET48:
+- resistance a l'injection de headers forwarded
+- resolution tenant durcie
+- diagnostics request meta
+- checks scripts reproductibles
 
 ## Pre-requis
 
-- Etre positionne a la racine du depot `sdne`
-- .NET SDK installe (`dotnet`)
-- .NET Framework 4.8 Developer Pack
+- Windows avec .NET Framework 4.8 Developer Pack
+- .NET SDK installe
 - PowerShell 5.1+
-- (Optionnel) Docker Desktop pour `infra/docker-compose.yml`
+- Etre positionne a la racine du depot `sdne`
+- (Optionnel) Docker Desktop pour la partie `infra`
 
-## Lancement
+## Etape 1 - Restaurer et builder
 
-```powershell
-if (Test-Path .\10-NET48) { Set-Location .\10-NET48 }
-dotnet restore .\Atelier10.slnx
-$BaseUrl = 'http://localhost:5110'
-dotnet run --project .\PerimeterValidationLab\PerimeterValidationLab.csproj --urls=$BaseUrl
-```
-
-Si Windows retourne `Access denied` sur `HttpListener`, executer une fois en administrateur:
+Code source a verifier (etape):
+- `10-NET48/Atelier10.slnx`
+- `10-NET48/PerimeterValidationLab/PerimeterValidationLab.csproj:1`
 
 ```powershell
-netsh http add urlacl url=http://localhost:5110/ user=%USERNAME%
+dotnet restore .\10-NET48\Atelier10.slnx
+dotnet build .\10-NET48\Atelier10.slnx
 ```
 
-Code principal:
-- `10-NET48/PerimeterValidationLab/Program.cs`
+## Etape 2 - Lancer l'API
 
-## Endpoints
-
-- `GET /`
-- `GET /vuln/links/reset-password?user=...`
-- `GET /secure/links/reset-password?user=...`
-- `GET /vuln/tenant/home`
-- `GET /secure/tenant/home`
-- `GET /secure/diagnostics/request-meta`
-
-## Parcours rapide
+Code source a verifier (etape):
+- `10-NET48/PerimeterValidationLab/Program.cs:33`
+- `10-NET48/PerimeterValidationLab/Program.cs:77`
 
 ```powershell
 $BaseUrl = 'http://localhost:5110'
+dotnet run --project .\10-NET48\PerimeterValidationLab\PerimeterValidationLab.csproj --urls=$BaseUrl
+```
 
-# 1) Vuln: lien forge via forwarded headers
-$hBad = @{ 'X-Forwarded-Host'='evil.example'; 'X-Forwarded-Proto'='http' }
-Invoke-RestMethod -Uri "$BaseUrl/vuln/links/reset-password?user=alice" -Headers $hBad -Method Get
+## Etape 3 - Verifier reset-link avec headers forwarded
 
-# 2) Secure: rejet host non allowlist
+Code source a verifier (etape):
+- `10-NET48/PerimeterValidationLab/Program.cs:96`
+- `10-NET48/PerimeterValidationLab/Program.cs:108`
+- `10-NET48/PerimeterValidationLab/Program.cs:176`
+
+```powershell
+$BaseUrl = 'http://localhost:5110'
+$headers = @{ 'X-Forwarded-Host' = 'evil.example'; 'X-Forwarded-Proto' = 'http' }
+
+Invoke-RestMethod -Uri "$BaseUrl/vuln/links/reset-password?user=alice" -Method Get -Headers $headers
 try {
-  Invoke-RestMethod -Uri "$BaseUrl/secure/links/reset-password?user=alice" -Headers $hBad -Method Get -ErrorAction Stop
+    Invoke-RestMethod -Uri "$BaseUrl/secure/links/reset-password?user=alice" -Method Get -Headers $headers -ErrorAction Stop
 } catch {
-  $_.Exception.Response.StatusCode.value__
+    $_.Exception.Response.StatusCode.value__
 }
-
-# 3) Secure: acceptation host allowlist + https
-$hOk = @{ 'X-Forwarded-Host'='app.contoso.local'; 'X-Forwarded-Proto'='https' }
-Invoke-RestMethod -Uri "$BaseUrl/secure/links/reset-password?user=alice" -Headers $hOk -Method Get
-
-# 4) Tenant secure
-Invoke-RestMethod -Uri "$BaseUrl/secure/tenant/home" -Headers $hOk -Method Get
-
-# 5) Diagnostics
-Invoke-RestMethod -Uri "$BaseUrl/secure/diagnostics/request-meta" -Headers $hOk -Method Get
 ```
 
-## Tests
+## Etape 4 - Verifier resolution tenant
 
-Les tests NET48 de cette piste sont des smoke tests (validation d'execution):
+Code source a verifier (etape):
+- `10-NET48/PerimeterValidationLab/Program.cs:124`
+- `10-NET48/PerimeterValidationLab/Program.cs:132`
+- `10-NET48/PerimeterValidationLab/Program.cs:143`
 
 ```powershell
-if (Test-Path .\10-NET48) { Set-Location .\10-NET48 }
-dotnet test .\PerimeterValidationLab.Tests\PerimeterValidationLab.Tests.csproj
+$BaseUrl = 'http://localhost:5110'
+$headersBad = @{ 'X-Forwarded-Host' = 'unknown-tenant.local'; 'X-Forwarded-Proto' = 'https' }
+
+Invoke-RestMethod -Uri "$BaseUrl/vuln/tenant/home" -Method Get -Headers $headersBad
+try {
+    Invoke-RestMethod -Uri "$BaseUrl/secure/tenant/home" -Method Get -Headers $headersBad -ErrorAction Stop
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}
 ```
 
-## Verifications attendues
+## Etape 5 - Consulter les diagnostics perimetriques
 
-- `vuln/links/reset-password` accepte les headers controles par l'attaquant
-- `secure/links/reset-password` impose host allowlist + scheme `https`
-- `secure/tenant/home` refuse les tenants hors allowlist
-- `secure/diagnostics/request-meta` expose la decision de resolution
+Code source a verifier (etape):
+- `10-NET48/PerimeterValidationLab/Program.cs:152`
+- `10-NET48/PerimeterValidationLab/Program.cs:155`
+- `10-NET48/PerimeterValidationLab/Program.cs:291`
+
+```powershell
+$BaseUrl = 'http://localhost:5110'
+$headers = @{ 'X-Forwarded-Host' = 'app.example.local'; 'X-Forwarded-Proto' = 'https' }
+Invoke-RestMethod -Uri "$BaseUrl/secure/diagnostics/request-meta" -Method Get -Headers $headers
+```
+
+## Etape 6 - Executer les tests atelier
+
+Code source a verifier (etape):
+- `10-NET48/PerimeterValidationLab.Tests/SmokeTests.cs:5`
+
+```powershell
+dotnet test .\10-NET48\Atelier10.slnx
+```
+
+## Etape 7 - Scripts stagiaires
+
+Code source a verifier (etape):
+- `10-NET48/scripts/calls.ps1:1`
+- `10-NET48/scripts/run-perimeter-checks.ps1:1`
+- `10-NET48/scripts/proxy-capture-playbook.md:1`
+
+```powershell
+.\10-NET48\scripts\calls.ps1 -BaseUrl 'http://localhost:5110'
+.\10-NET48\scripts\run-perimeter-checks.ps1 -BaseUrl 'http://localhost:5110'
+```
+
+## Etape 8 - Scenario docker (optionnel)
+
+Code source a verifier (etape):
+- `10-NET48/infra/docker-compose.yml:1`
+- `10-NET48/infra/nginx.conf:1`
+
+```powershell
+Set-Location .\10-NET48\infra
+docker compose up -d
+docker compose ps
+Set-Location ..
+```
+
+## URL ACL Windows (si besoin)
+
+Si `HttpListener` retourne `Access denied`, executer une fois en PowerShell administrateur:
+
+```powershell
+netsh http add urlacl url=http://localhost:5110/ user=$env:USERNAME
+```
 
 ## Nettoyage
 
 ```powershell
-if (Test-Path .\10-NET48) { Set-Location .\10-NET48 }
-if (Test-Path .\infra) {
-  Set-Location .\infra
-  docker compose down
-  Set-Location ..
-}
-dotnet clean .\Atelier10.slnx
+dotnet clean .\10-NET48\Atelier10.slnx
 ```

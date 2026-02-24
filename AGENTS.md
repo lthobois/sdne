@@ -20,6 +20,16 @@ Contraintes obligatoires:
 2. Les instructions doivent etre progressives, claires, et directement exploitables par des stagiaires.
 3. Aucune etape critique ne doit etre omise du README.
 4. Une section globale "lignes de code a verifier" ne suffit pas a elle seule: les references doivent aussi apparaitre dans chaque etape concernee.
+5. Les appels de scripts PowerShell documentes dans les README doivent etre ecrits en chemins relatifs depuis la racine du depot (ex: `.\01-NET10\scripts\calls.ps1`), et non depuis un sous-repertoire d'atelier.
+
+Sections obligatoires dans chaque README d'atelier (dans cet ordre):
+
+1. `Objectif`
+2. `Pre-requis`
+3. `Les etapes de l'atelier`
+4. `Scripts stagiaires (support)` (si scripts disponibles)
+5. `Fichiers utiles`
+6. `Nettoyage`
 
 Objectif:
 

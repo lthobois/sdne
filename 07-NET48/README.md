@@ -2,35 +2,46 @@
 
 ## Objectif
 
-Atelier NET48 pour reduire la surface d'exposition:
-
-- filtrage WAF-like
-- protection endpoint admin
+Reduire la surface d'attaque via:
+- endpoint admin protege
+- filtrage de patterns malveillants
 - validation metadata upload
-- limitation de debit
-
-Implementation reelle: `07-NET48/ExposureDefenseLab/Program.cs`.
+- rate limiting
 
 ## Pre-requis
 
 - Windows avec .NET Framework 4.8 Developer Pack
-- .NET SDK installe (`dotnet --version`)
+- .NET SDK installe
 - PowerShell 5.1+
-- Positionne a la racine du depot `sdne`
+- Etre positionne a la racine du depot `sdne`
 
-## Etape 1 - Restaurer et lancer
+## Etape 1 - Restaurer et builder
+
+Code source a verifier (etape):
+- `07-NET48/Atelier07.slnx`
+- `07-NET48/ExposureDefenseLab/ExposureDefenseLab.csproj:1`
 
 ```powershell
-if (Test-Path .\07-NET48) { Set-Location .\07-NET48 }
-dotnet restore .\Atelier07.slnx
-
-$BaseUrl = 'http://localhost:5107'
-dotnet run --project .\ExposureDefenseLab\ExposureDefenseLab.csproj --urls=$BaseUrl
+dotnet restore .\07-NET48\Atelier07.slnx
+dotnet build .\07-NET48\Atelier07.slnx
 ```
 
-Resultat attendu: API active sur `http://localhost:5107`.
+## Etape 2 - Lancer l'API
 
-## Etape 2 - Admin endpoint: vuln vs secure
+Code source a verifier (etape):
+- `07-NET48/ExposureDefenseLab/Program.cs:35`
+- `07-NET48/ExposureDefenseLab/Program.cs:128`
+
+```powershell
+$BaseUrl = 'http://localhost:5107'
+dotnet run --project .\07-NET48\ExposureDefenseLab\ExposureDefenseLab.csproj --urls=$BaseUrl
+```
+
+## Etape 3 - Endpoint admin (vuln vs secure)
+
+Code source a verifier (etape):
+- `07-NET48/ExposureDefenseLab/Program.cs:147`
+- `07-NET48/ExposureDefenseLab/Program.cs:154`
 
 ```powershell
 $BaseUrl = 'http://localhost:5107'
@@ -39,16 +50,19 @@ Invoke-RestMethod -Uri "$BaseUrl/vuln/admin/ping" -Method Get
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/admin/ping" -Method Get -ErrorAction Stop
 } catch {
-    [int]$_.Exception.Response.StatusCode
+    $_.Exception.Response.StatusCode.value__
 }
 
 $headers = @{ 'X-Admin-Key' = 'workshop-admin-key' }
 Invoke-RestMethod -Uri "$BaseUrl/secure/admin/ping" -Method Get -Headers $headers
 ```
 
-Resultat attendu: endpoint secure accessible uniquement avec `X-Admin-Key` valide.
+## Etape 4 - Filtrage et upload
 
-## Etape 3 - Filtrage WAF-like
+Code source a verifier (etape):
+- `07-NET48/ExposureDefenseLab/Program.cs:121`
+- `07-NET48/ExposureDefenseLab/Program.cs:176`
+- `07-NET48/ExposureDefenseLab/Program.cs:202`
 
 ```powershell
 $BaseUrl = 'http://localhost:5107'
@@ -57,31 +71,17 @@ Invoke-RestMethod -Uri "$BaseUrl/secure/search?q=normal-query" -Method Get
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/search?q=$([uri]::EscapeDataString('<script>alert(1)</script>'))" -Method Get -ErrorAction Stop
 } catch {
-    [int]$_.Exception.Response.StatusCode
+    $_.Exception.Response.StatusCode.value__
 }
-```
-
-Resultat attendu: pattern suspect bloque en `403`.
-
-## Etape 4 - Validation upload metadata
-
-```powershell
-$BaseUrl = 'http://localhost:5107'
 
 $ok = @{ fileName = 'doc.pdf'; contentType = 'application/pdf'; size = 1200 } | ConvertTo-Json
 Invoke-RestMethod -Uri "$BaseUrl/secure/upload/meta" -Method Post -ContentType 'application/json' -Body $ok
-
-$bad = @{ fileName = '..\\evil.exe'; contentType = 'application/octet-stream'; size = 99999999 } | ConvertTo-Json
-try {
-    Invoke-RestMethod -Uri "$BaseUrl/secure/upload/meta" -Method Post -ContentType 'application/json' -Body $bad -ErrorAction Stop
-} catch {
-    [int]$_.Exception.Response.StatusCode
-}
 ```
 
-Resultat attendu: payload invalide refuse (`400`).
+## Etape 5 - Verifier le rate limiting
 
-## Etape 5 - Rate limiting
+Code source a verifier (etape):
+- `07-NET48/ExposureDefenseLab/Program.cs:91`
 
 ```powershell
 $BaseUrl = 'http://localhost:5107'
@@ -95,16 +95,25 @@ $BaseUrl = 'http://localhost:5107'
 }
 ```
 
-Resultat attendu: certaines requetes en `429` (fenetre 10s, limite 5).
+## Etape 6 - Executer les tests atelier
 
-## Tests automatisees
+Code source a verifier (etape):
+- `07-NET48/ExposureDefenseLab.Tests/SmokeTests.cs:5`
 
 ```powershell
-if (Test-Path .\07-NET48) { Set-Location .\07-NET48 }
-dotnet test .\ExposureDefenseLab.Tests\ExposureDefenseLab.Tests.csproj
+dotnet test .\07-NET48\Atelier07.slnx
 ```
 
-Note: sur la piste NET48, le projet de tests fournit des smoke tests d'execution (`07-NET48/ExposureDefenseLab.Tests/SmokeTests.cs`).
+## Etape 7 - Scripts stagiaires
+
+Code source a verifier (etape):
+- `07-NET48/scripts/calls.ps1:1`
+- `07-NET48/scripts/run-defense-checks.ps1:1`
+
+```powershell
+.\07-NET48\scripts\calls.ps1 -BaseUrl 'http://localhost:5107'
+.\07-NET48\scripts\run-defense-checks.ps1 -BaseUrl 'http://localhost:5107'
+```
 
 ## URL ACL Windows (si besoin)
 
@@ -117,5 +126,5 @@ netsh http add urlacl url=http://localhost:5107/ user=$env:USERNAME
 ## Nettoyage
 
 ```powershell
-dotnet clean .\Atelier07.slnx
+dotnet clean .\07-NET48\Atelier07.slnx
 ```

@@ -2,119 +2,96 @@
 
 ## Objectif
 
-Atelier NET48 de comparaison `vuln` vs `secure` pour:
-
-- Session theft
-- Insecure deserialization
-- IDOR
-
-Implementation reelle: `03-NET48/AppSecWorkshop03/Program.cs`.
+Comparer les approches `vuln` et `secure` pour session theft, deserialisation et IDOR.
 
 ## Pre-requis
 
-- Windows avec .NET Framework 4.8 Developer Pack
-- .NET SDK installe (`dotnet --version`)
+- Windows + .NET Framework 4.8 Developer Pack
+- .NET SDK installe
 - PowerShell 5.1+
-- Positionne a la racine du depot `sdne`
 
-## Build et lancement
+## Etape 1 - Restaurer et builder
+
+Code source a verifier (etape):
+- `03-NET48/Atelier03.slnx`
+- `03-NET48/AppSecWorkshop03/AppSecWorkshop03.csproj`
 
 ```powershell
-dotnet restore .\03-NET48\AppSecWorkshop03\AppSecWorkshop03.csproj
-dotnet build .\03-NET48\AppSecWorkshop03\AppSecWorkshop03.csproj
+dotnet restore .\03-NET48\Atelier03.slnx
+dotnet build .\03-NET48\Atelier03.slnx
+```
 
+## Etape 2 - Lancer l'API
+
+Code source a verifier (etape):
+- `03-NET48/AppSecWorkshop03/Program.cs:41`
+- `03-NET48/AppSecWorkshop03/Program.cs:85`
+
+```powershell
 $BaseUrl = 'http://localhost:5103'
 dotnet run --project .\03-NET48\AppSecWorkshop03\AppSecWorkshop03.csproj --urls=$BaseUrl
 ```
 
-## Verification fonctionnelle
+## Etape 3 - Session theft
 
-Dans un second terminal:
-
-### 1) Session vuln vs secure
+Code source a verifier (etape):
+- `03-NET48/AppSecWorkshop03/Program.cs:15`
+- `03-NET48/AppSecWorkshop03/Program.cs:47`
+- `03-NET48/AppSecWorkshop03/Program.cs:54`
+- `03-NET48/AppSecWorkshop03/Program.cs:62`
 
 ```powershell
 $BaseUrl = 'http://localhost:5103'
-$loginBody = @{ username = 'alice' } | ConvertTo-Json
-
-$vulnLogin = Invoke-RestMethod -Uri "$BaseUrl/vuln/session/login" -Method Post -ContentType 'application/json' -Body $loginBody
-$vulnToken = $vulnLogin.token
-Invoke-RestMethod -Uri "$BaseUrl/vuln/session/profile?token=$vulnToken" -Method Get
-
-$headersLogin = @{ 'User-Agent' = 'WorkshopAgent/1.0' }
-$secureLogin = Invoke-RestMethod -Uri "$BaseUrl/secure/session/login" -Method Post -Headers $headersLogin -ContentType 'application/json' -Body $loginBody
-$secureToken = $secureLogin.token
-
-$headersProfile = @{ 'X-Session-Token' = $secureToken; 'User-Agent' = 'WorkshopAgent/1.0' }
-Invoke-RestMethod -Uri "$BaseUrl/secure/session/profile" -Method Get -Headers $headersProfile
+Invoke-RestMethod -Uri "$BaseUrl/vuln/session/profile?token=YWxpY2U6d29ya3Nob3Atc2Vzc2lvbg==" -Method Get
+$login = Invoke-RestMethod -Uri "$BaseUrl/secure/session/login" -Method Post -Headers @{ 'User-Agent'='WorkshopAgent/1.0' } -ContentType 'application/json' -Body (@{ username='alice' } | ConvertTo-Json)
+$token = $login.token
+Invoke-RestMethod -Uri "$BaseUrl/secure/session/profile" -Method Get -Headers @{ 'X-Session-Token'=$token; 'User-Agent'='WorkshopAgent/1.0' }
 ```
 
-Attendu:
+## Etape 4 - Deserialisation
 
-- mode `vuln`: token previsible/reutilisable
-- mode `secure`: token valide seulement avec `X-Session-Token` + meme `User-Agent`
-
-### 2) Deserialisation vuln vs secure
+Code source a verifier (etape):
+- `03-NET48/AppSecWorkshop03/Program.cs:75`
+- `03-NET48/AppSecWorkshop03/Program.cs:94`
+- `03-NET48/AppSecWorkshop03/Program.cs:96`
 
 ```powershell
 $BaseUrl = 'http://localhost:5103'
-
-$danger = @"
-{
-  "$type": "AppSecWorkshop03.Serialization.DangerousAction, AppSecWorkshop03",
-  "FileName": "owned-by-deserialization.txt",
-  "Content": "Payload deserialize"
-}
-"@
-Invoke-RestMethod -Uri "$BaseUrl/vuln/deserialization/execute" -Method Post -ContentType 'application/json' -Body $danger
-
-$safeBody = @{ action = 'echo'; message = 'hello' } | ConvertTo-Json
-Invoke-RestMethod -Uri "$BaseUrl/secure/deserialization/execute" -Method Post -ContentType 'application/json' -Body $safeBody
-
-$badBody = @{ action = 'delete-all'; message = 'x' } | ConvertTo-Json
-try {
-    Invoke-RestMethod -Uri "$BaseUrl/secure/deserialization/execute" -Method Post -ContentType 'application/json' -Body $badBody -ErrorAction Stop
-} catch {
-    [int]$_.Exception.Response.StatusCode
-}
+Invoke-RestMethod -Uri "$BaseUrl/secure/deserialization/execute" -Method Post -ContentType 'application/json' -Body (@{ action='echo'; message='hello' } | ConvertTo-Json)
+try { Invoke-RestMethod -Uri "$BaseUrl/secure/deserialization/execute" -Method Post -ContentType 'application/json' -Body (@{ action='delete-all'; message='x' } | ConvertTo-Json) -ErrorAction Stop } catch { $_.Exception.Response.StatusCode.value__ }
 ```
 
-Attendu:
+## Etape 5 - IDOR
 
-- `vuln`: payload type peut declencher une action dangereuse
-- `secure`: seule l'action `echo` est acceptee
-
-### 3) IDOR vuln vs secure
+Code source a verifier (etape):
+- `03-NET48/AppSecWorkshop03/Program.cs:108`
+- `03-NET48/AppSecWorkshop03/Program.cs:124`
+- `03-NET48/AppSecWorkshop03/Program.cs:138`
 
 ```powershell
 $BaseUrl = 'http://localhost:5103'
-
 Invoke-RestMethod -Uri "$BaseUrl/vuln/idor/orders/1002?username=alice" -Method Get
-
-try {
-    Invoke-RestMethod -Uri "$BaseUrl/secure/idor/orders/1002?username=alice" -Method Get -ErrorAction Stop
-} catch {
-    [int]$_.Exception.Response.StatusCode
-}
-
+try { Invoke-RestMethod -Uri "$BaseUrl/secure/idor/orders/1002?username=alice" -Method Get -ErrorAction Stop } catch { $_.Exception.Response.StatusCode.value__ }
 Invoke-RestMethod -Uri "$BaseUrl/secure/idor/orders/1002?username=bob" -Method Get
 ```
 
-Attendu:
+## Etape 6 - Tests atelier
 
-- `vuln`: acces direct possible
-- `secure`: `403` pour utilisateur non proprietaire, acces admin autorise
-
-## URL ACL Windows (si besoin)
-
-Si `HttpListener` retourne `Access denied`, executer une fois en PowerShell administrateur:
+Code source a verifier (etape):
+- `03-NET48/AppSecWorkshop03.Tests/SmokeTests.cs:5`
 
 ```powershell
-netsh http add urlacl url=http://localhost:5103/ user=$env:USERNAME
+dotnet test .\03-NET48\Atelier03.slnx
+```
+
+## Scripts stagiaires (support)
+
+```powershell
+.\03-NET48\scripts\calls.ps1
 ```
 
 ## Nettoyage
 
 ```powershell
-dotnet clean .\03-NET48\AppSecWorkshop03\AppSecWorkshop03.csproj
+dotnet clean .\03-NET48\Atelier03.slnx
 ```

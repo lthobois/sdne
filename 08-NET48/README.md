@@ -2,35 +2,47 @@
 
 ## Objectif
 
-Atelier NET48 pour mettre en place des fondamentaux de monitoring securite:
-
-- correlation ID
-- audit trail
-- alerting sur echecs d'auth
-- endpoint SOC protege
-
-Implementation reelle: `08-NET48/SecurityMonitoringLab/Program.cs`.
+Verifier un flux de monitoring securite:
+- correlation id
+- audit events
+- alertes
+- reset admin protege
 
 ## Pre-requis
 
 - Windows avec .NET Framework 4.8 Developer Pack
-- .NET SDK installe (`dotnet --version`)
+- .NET SDK installe
 - PowerShell 5.1+
-- Positionne a la racine du depot `sdne`
+- Etre positionne a la racine du depot `sdne`
 
-## Etape 1 - Restaurer et lancer
+## Etape 1 - Restaurer et builder
+
+Code source a verifier (etape):
+- `08-NET48/Atelier08.slnx`
+- `08-NET48/SecurityMonitoringLab/SecurityMonitoringLab.csproj:1`
 
 ```powershell
-if (Test-Path .\08-NET48) { Set-Location .\08-NET48 }
-dotnet restore .\Atelier08.slnx
-
-$BaseUrl = 'http://localhost:5108'
-dotnet run --project .\SecurityMonitoringLab\SecurityMonitoringLab.csproj --urls=$BaseUrl
+dotnet restore .\08-NET48\Atelier08.slnx
+dotnet build .\08-NET48\Atelier08.slnx
 ```
 
-Resultat attendu: API active sur `http://localhost:5108`.
+## Etape 2 - Lancer l'API
 
-## Etape 2 - Login vuln vs secure
+Code source a verifier (etape):
+- `08-NET48/SecurityMonitoringLab/Program.cs:34`
+- `08-NET48/SecurityMonitoringLab/Program.cs:78`
+
+```powershell
+$BaseUrl = 'http://localhost:5108'
+dotnet run --project .\08-NET48\SecurityMonitoringLab\SecurityMonitoringLab.csproj --urls=$BaseUrl
+```
+
+## Etape 3 - Login vuln et secure
+
+Code source a verifier (etape):
+- `08-NET48/SecurityMonitoringLab/Program.cs:106`
+- `08-NET48/SecurityMonitoringLab/Program.cs:119`
+- `08-NET48/SecurityMonitoringLab/Program.cs:80`
 
 ```powershell
 $BaseUrl = 'http://localhost:5108'
@@ -42,27 +54,24 @@ Invoke-RestMethod -Uri "$BaseUrl/secure/login" -Method Post -ContentType 'applic
 Invoke-RestMethod -Uri "$BaseUrl/secure/login" -Method Post -ContentType 'application/json' -Headers @{ 'X-Correlation-ID' = 'corr-002' } -Body $okLogin
 ```
 
-Resultat attendu: reponses avec `correlationId` et etat `authenticated`.
+## Etape 4 - Consulter audit et alertes
 
-## Etape 3 - Consulter audit trail
+Code source a verifier (etape):
+- `08-NET48/SecurityMonitoringLab/Program.cs:157`
+- `08-NET48/SecurityMonitoringLab/Program.cs:175`
+- `08-NET48/SecurityMonitoringLab/Program.cs:143`
 
 ```powershell
 $BaseUrl = 'http://localhost:5108'
 Invoke-RestMethod -Uri "$BaseUrl/secure/audit/events" -Method Get
-```
-
-Resultat attendu: presence de `auth.failure` et `auth.success`.
-
-## Etape 4 - Consulter alertes
-
-```powershell
-$BaseUrl = 'http://localhost:5108'
 Invoke-RestMethod -Uri "$BaseUrl/secure/alerts" -Method Get
 ```
 
-Resultat attendu: alertes apres plusieurs echecs.
+## Etape 5 - Reset alertes admin
 
-## Etape 5 - Reset alertes (admin)
+Code source a verifier (etape):
+- `08-NET48/SecurityMonitoringLab/Program.cs:187`
+- `08-NET48/SecurityMonitoringLab/Program.cs:194`
 
 ```powershell
 $BaseUrl = 'http://localhost:5108'
@@ -70,7 +79,7 @@ $BaseUrl = 'http://localhost:5108'
 try {
     Invoke-RestMethod -Uri "$BaseUrl/secure/admin/reset-alerts" -Method Post -ErrorAction Stop
 } catch {
-    [int]$_.Exception.Response.StatusCode
+    $_.Exception.Response.StatusCode.value__
 }
 
 $headers = @{ 'X-SOC-Key' = 'soc-admin-key' }
@@ -78,16 +87,25 @@ Invoke-RestMethod -Uri "$BaseUrl/secure/admin/reset-alerts" -Method Post -Header
 Invoke-RestMethod -Uri "$BaseUrl/secure/alerts" -Method Get
 ```
 
-Resultat attendu: reset autorise uniquement avec `X-SOC-Key` valide.
+## Etape 6 - Executer les tests atelier
 
-## Tests automatisees
+Code source a verifier (etape):
+- `08-NET48/SecurityMonitoringLab.Tests/SmokeTests.cs:5`
 
 ```powershell
-if (Test-Path .\08-NET48) { Set-Location .\08-NET48 }
-dotnet test .\SecurityMonitoringLab.Tests\SecurityMonitoringLab.Tests.csproj
+dotnet test .\08-NET48\Atelier08.slnx
 ```
 
-Note: sur la piste NET48, le projet de tests fournit des smoke tests d'execution (`08-NET48/SecurityMonitoringLab.Tests/SmokeTests.cs`).
+## Etape 7 - Scripts stagiaires
+
+Code source a verifier (etape):
+- `08-NET48/scripts/calls.ps1:1`
+- `08-NET48/scripts/run-monitoring-checks.ps1:1`
+
+```powershell
+.\08-NET48\scripts\calls.ps1 -BaseUrl 'http://localhost:5108'
+.\08-NET48\scripts\run-monitoring-checks.ps1 -BaseUrl 'http://localhost:5108'
+```
 
 ## URL ACL Windows (si besoin)
 
@@ -100,5 +118,5 @@ netsh http add urlacl url=http://localhost:5108/ user=$env:USERNAME
 ## Nettoyage
 
 ```powershell
-dotnet clean .\Atelier08.slnx
+dotnet clean .\08-NET48\Atelier08.slnx
 ```
