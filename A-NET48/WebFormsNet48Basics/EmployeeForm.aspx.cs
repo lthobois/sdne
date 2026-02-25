@@ -7,7 +7,7 @@ using WebFormsNet48Basics.Models;
 
 namespace WebFormsNet48Basics
 {
-    public partial class EmployeeForm : System.Web.UI.Page
+    public partial class EmployeeForm : BasePage
     {
         private int? EmployeeId
         {

@@ -4,6 +4,7 @@
 <head runat="server">
     <meta charset="utf-8" />
     <title>Employees - WebForms .NET 4.8</title>
+    <link href="Content/site.css" rel="stylesheet" />
 </head>
 <body>
     <form id="form1" runat="server">
@@ -13,7 +14,7 @@
             |
             <asp:HyperLink ID="lnkHome" runat="server" NavigateUrl="~/Default.aspx">Home</asp:HyperLink>
         </p>
-        <asp:Label ID="lblMessage" runat="server" ForeColor="Green" />
+        <asp:Label ID="lblMessage" runat="server" CssClass="text-success" />
         <asp:GridView ID="gvEmployees" runat="server" AutoGenerateColumns="False" DataKeyNames="BusinessEntityID"
             OnRowDeleting="gvEmployees_RowDeleting" EmptyDataText="No employee found.">
             <Columns>
@@ -30,8 +31,7 @@
                         <asp:HyperLink ID="lnkEdit" runat="server"
                             NavigateUrl='<%# Eval("BusinessEntityID", "~/EmployeeForm.aspx?id={0}") %>'
                             Text="Edit" />
-                        <asp:LinkButton ID="btnDelete" runat="server" CommandName="Delete" Text="Delete"
-                            OnClientClick="return confirm('Delete this employee?');" />
+                        <asp:Button ID="btnDelete" runat="server" CommandName="Delete" Text="Delete" />
                     </ItemTemplate>
                 </asp:TemplateField>
             </Columns>

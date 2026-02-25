@@ -4,7 +4,7 @@ using WebFormsNet48Basics.Data;
 
 namespace WebFormsNet48Basics
 {
-    public partial class EmployeeList : System.Web.UI.Page
+    public partial class EmployeeList : BasePage
     {
         protected void Page_Load(object sender, EventArgs e)
         {

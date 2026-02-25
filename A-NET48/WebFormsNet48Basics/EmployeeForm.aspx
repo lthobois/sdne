@@ -4,6 +4,7 @@
 <head runat="server">
     <meta charset="utf-8" />
     <title>Employee Form - WebForms .NET 4.8</title>
+    <link href="Content/site.css" rel="stylesheet" />
 </head>
 <body>
     <form id="form1" runat="server">
@@ -11,7 +12,7 @@
         <p>
             <asp:HyperLink ID="lnkList" runat="server" NavigateUrl="~/EmployeeList.aspx">Back to list</asp:HyperLink>
         </p>
-        <asp:Label ID="lblError" runat="server" ForeColor="Red" />
+        <asp:Label ID="lblError" runat="server" CssClass="text-error" />
         <table>
             <tr>
                 <td><label for="txtBusinessEntityID">BusinessEntityID</label></td>
@@ -28,13 +29,13 @@
             <tr>
                 <td><label for="txtLoginID">LoginID</label></td>
                 <td>
-                    <asp:TextBox ID="txtLoginID" runat="server" MaxLength="256" Width="420px" />
+                    <asp:TextBox ID="txtLoginID" runat="server" MaxLength="256" CssClass="w-420" />
                 </td>
             </tr>
             <tr>
                 <td><label for="txtJobTitle">JobTitle</label></td>
                 <td>
-                    <asp:TextBox ID="txtJobTitle" runat="server" MaxLength="50" Width="280px" />
+                    <asp:TextBox ID="txtJobTitle" runat="server" MaxLength="50" CssClass="w-280" />
                 </td>
             </tr>
             <tr>

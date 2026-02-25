@@ -15,6 +15,16 @@
                 Open Employee CRUD (Entity Framework + LINQ)
             </asp:HyperLink>
         </p>
+        <p>
+            <asp:HyperLink ID="lnkClientsCrypto" runat="server" NavigateUrl="~/ClientsList.aspx">
+                Open Clients CRUD (SQL EncryptionByKey / DecryptByKey)
+            </asp:HyperLink>
+        </p>
+        <p>
+            <asp:HyperLink ID="lnkEmployesAe" runat="server" NavigateUrl="~/EmployesAeList.aspx">
+                Open Employes CRUD (Always Encrypted)
+            </asp:HyperLink>
+        </p>
     </form>
 </body>
 </html>
