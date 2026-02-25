@@ -10,6 +10,11 @@
         <div>
             Hello World - WebForms .NET 4.8
         </div>
+        <p>
+            <asp:HyperLink ID="lnkEmployees" runat="server" NavigateUrl="~/EmployeeList.aspx">
+                Open Employee CRUD (Entity Framework + LINQ)
+            </asp:HyperLink>
+        </p>
     </form>
 </body>
 </html>

@@ -3,3 +3,32 @@ obj/
 .vs/
 *.user
 *.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio / Rider
+.idea/
+*.rsuser
+*.VC.db
+*.VC.VC.opendb
+
+# NuGet (packages are restored)
+packages/
+!packages/build/
+!packages/repositories.config
+*.nupkg
+*.snupkg
+
+# ASP.NET / IIS Express
+.vs/**/config/applicationhost.config
+*.pdb
+*.cache
+_PublishedWebsites/
+PublishProfiles/
+
+# Logs and local artifacts
+*.log
+TestResults/
+
+# Node/npm (frontend assets if added later)
+node_modules/
